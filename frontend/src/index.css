@@ -2231,3 +2231,222 @@ tr:hover {
         padding: 25px;
     }
 }
+
+/* =========================
+   USER MANAGEMENT
+========================= */
+
+.users-page {
+    width: 100%;
+}
+
+.users-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.users-header h2 {
+    margin-bottom: 5px;
+}
+
+.users-header p {
+    margin: 0;
+    color: #64748b;
+}
+
+.user-count {
+    background: #2563eb;
+    color: white;
+    padding: 8px 15px;
+    border-radius: 20px;
+    font-weight: bold;
+    white-space: nowrap;
+}
+
+/* Messages */
+
+.users-success {
+    background: #dcfce7;
+    color: #166534;
+    padding: 12px 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    font-weight: bold;
+}
+
+.users-error {
+    background: #fee2e2;
+    color: #991b1b;
+    padding: 12px 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    font-weight: bold;
+}
+
+/* Form */
+
+.user-form-card {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.user-form-card h3 {
+    margin-bottom: 20px;
+}
+
+.user-form {
+    display: grid;
+    grid-template-columns:
+        repeat(auto-fit, minmax(200px, 1fr));
+
+    gap: 15px;
+}
+
+.user-form-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.user-form-field label {
+    font-weight: bold;
+    color: #334155;
+}
+
+.user-form-button {
+    display: flex;
+    align-items: end;
+}
+
+.create-user-button {
+    background: #2563eb;
+    color: white;
+    width: 100%;
+}
+
+/* User List */
+
+.users-list-card {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.users-list-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    gap: 15px;
+
+    margin-bottom: 15px;
+}
+
+.users-list-header h3 {
+    margin: 0;
+}
+
+.users-list-header span {
+    color: #64748b;
+    font-size: 14px;
+}
+
+/* Roles */
+
+.role-admin {
+    display: inline-block;
+
+    background: #ede9fe;
+    color: #6d28d9;
+
+    padding: 5px 10px;
+
+    border-radius: 20px;
+
+    font-weight: bold;
+    font-size: 13px;
+
+    text-transform: capitalize;
+}
+
+.role-cashier {
+    display: inline-block;
+
+    background: #dbeafe;
+    color: #1d4ed8;
+
+    padding: 5px 10px;
+
+    border-radius: 20px;
+
+    font-weight: bold;
+    font-size: 13px;
+
+    text-transform: capitalize;
+}
+
+/* Delete */
+
+.delete-user-button {
+    background: #dc2626;
+    color: white;
+
+    white-space: nowrap;
+}
+
+/* Mobile */
+
+@media (max-width: 768px) {
+
+    .users-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .user-count {
+        width: 100%;
+        text-align: center;
+    }
+
+    .user-form {
+        grid-template-columns: 1fr;
+    }
+
+    .user-form-button {
+        align-items: stretch;
+    }
+
+    .users-list-card {
+        padding: 15px;
+    }
+
+    .users-list-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .delete-user-button {
+        width: 100%;
+    }
+}
+
+@media (max-width: 480px) {
+
+    .users-header h2 {
+        font-size: 21px;
+    }
+
+    .user-form-card,
+    .users-list-card {
+        padding: 12px;
+    }
+}

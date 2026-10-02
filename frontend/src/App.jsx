@@ -8,6 +8,7 @@ import Products from "./pages/Products";
 import Categories from "./pages/Categories";
 import POS from "./pages/POS";
 import SalesHistory from "./pages/SalesHistory";
+import Users from "./pages/Users";
 
 function App() {
 
@@ -70,6 +71,8 @@ function App() {
                 {page === "sales" && (
                     <SalesHistory />
                 )}
+
+                {page === "users" && user.role === "admin" && <Users />}
 
             </div>
 
