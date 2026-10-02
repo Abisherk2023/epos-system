@@ -1,16 +1,69 @@
-# React + Vite
+# 🛒 EPOS System
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A modern **Electronic Point of Sale (EPOS) System** built using **React, Node.js, Express.js, and MySQL**.
 
-Currently, two official plugins are available:
+This project is designed to manage products, categories, sales, inventory, users, payments, reports, and receipts through a web-based interface.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## 🚀 Technologies Used
 
-## React Compiler
+### Frontend
+- React.js
+- Axios
+- Recharts
+- CSS
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### Backend
+- Node.js
+- Express.js
+- MySQL
+- JWT Authentication
+- bcryptjs
+- CORS
 
-## Expanding the ESLint configuration
+### Database
+- MySQL
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## ✨ Features
+
+- 🔐 User Login & Authentication
+- 👥 User Management
+- 🛡️ Role-Based Access Control
+- 📊 Dashboard
+- 📦 Product Management
+- 📁 Category Management
+- 🛒 POS Billing
+- 💰 Cash & Card Payments
+- 📉 Stock Management
+- ⚠️ Low Stock Alerts
+- 🧾 Sales History
+- 🧮 Sales Reports
+- 📈 Daily Sales Reports
+- 📊 Product Sales Reports
+- 💳 Payment Method Reports
+- 📥 CSV Report Export
+- 🖨️ Printable Reports
+- 🧾 Thermal Receipt Printing
+- 👤 Cashier Tracking
+
+## 🏗️ Project Structure
+
+```text
+epos-system/
+│
+├── backend/
+│   ├── config/
+│   ├── middleware/
+│   ├── routes/
+│   ├── server.js
+│   └── package.json
+│
+├── frontend/
+│   ├── src/
+│   │   ├── api/
+│   │   ├── components/
+│   │   ├── pages/
+│   │   ├── App.jsx
+│   │   └── index.css
+│   └── package.json
+│
+└── README.md
