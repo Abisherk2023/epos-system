@@ -14,16 +14,40 @@ function POS() {
     const [completedSale, setCompletedSale] = useState(null);
 
     // =========================
+    // GET LOGGED-IN USER
+    // =========================
+
+    const getLoggedInUser = () => {
+        try {
+            const savedUser =
+                localStorage.getItem("user");
+
+            if (!savedUser) {
+                return null;
+            }
+
+            return JSON.parse(savedUser);
+
+        } catch (error) {
+            console.error(
+                "Failed to read logged-in user:",
+                error
+            );
+
+            return null;
+        }
+    };
+
+    // =========================
     // FETCH PRODUCTS
     // =========================
 
     const fetchProducts = async () => {
         try {
-            const response = await api.get(
-                "/products"
-            );
+            const response = await api.get("/products");
 
             setProducts(response.data);
+
         } catch (error) {
             console.error(
                 "Error fetching products:",
@@ -41,6 +65,7 @@ function POS() {
     // =========================
 
     const addToCart = () => {
+
         if (!selectedProduct) {
             alert("Please select a product");
             return;
@@ -55,15 +80,18 @@ function POS() {
         }
 
         const existingItem = cart.find(
-            (item) => item.product_id === product.id
+            (item) =>
+                item.product_id === product.id
         );
 
-        const currentCartQuantity = existingItem
-            ? existingItem.quantity
-            : 0;
+        const currentCartQuantity =
+            existingItem
+                ? existingItem.quantity
+                : 0;
 
         const requestedQuantity =
-            currentCartQuantity + Number(quantity);
+            currentCartQuantity +
+            Number(quantity);
 
         if (
             requestedQuantity >
@@ -79,30 +107,46 @@ function POS() {
         }
 
         if (existingItem) {
+
             setCart(
                 cart.map((item) =>
                     item.product_id === product.id
                         ? {
                               ...item,
+
                               quantity:
                                   item.quantity +
                                   Number(quantity),
+
                               subtotal:
-                                  (item.quantity +
-                                      Number(quantity)) *
+                                  (
+                                      item.quantity +
+                                      Number(quantity)
+                                  ) *
                                   Number(item.price)
                           }
                         : item
                 )
             );
+
         } else {
+
             setCart([
                 ...cart,
+
                 {
-                    product_id: product.id,
-                    name: product.name,
-                    price: Number(product.price),
-                    quantity: Number(quantity),
+                    product_id:
+                        product.id,
+
+                    name:
+                        product.name,
+
+                    price:
+                        Number(product.price),
+
+                    quantity:
+                        Number(quantity),
+
                     subtotal:
                         Number(product.price) *
                         Number(quantity)
@@ -119,6 +163,7 @@ function POS() {
     // =========================
 
     const increaseQuantity = (productId) => {
+
         const cartItem = cart.find(
             (item) =>
                 item.product_id === productId
@@ -149,8 +194,10 @@ function POS() {
                 item.product_id === productId
                     ? {
                           ...item,
+
                           quantity:
                               item.quantity + 1,
+
                           subtotal:
                               (item.quantity + 1) *
                               Number(item.price)
@@ -165,6 +212,7 @@ function POS() {
     // =========================
 
     const decreaseQuantity = (productId) => {
+
         const cartItem = cart.find(
             (item) =>
                 item.product_id === productId
@@ -184,8 +232,10 @@ function POS() {
                 item.product_id === productId
                     ? {
                           ...item,
+
                           quantity:
                               item.quantity - 1,
+
                           subtotal:
                               (item.quantity - 1) *
                               Number(item.price)
@@ -200,6 +250,7 @@ function POS() {
     // =========================
 
     const removeFromCart = (productId) => {
+
         setCart(
             cart.filter(
                 (item) =>
@@ -214,7 +265,7 @@ function POS() {
 
     const total = cart.reduce(
         (sum, item) =>
-            sum + item.subtotal,
+            sum + Number(item.subtotal),
         0
     );
 
@@ -223,13 +274,15 @@ function POS() {
     // =========================
 
     const change =
-        Number(amountPaid || 0) - total;
+        Number(amountPaid || 0) -
+        total;
 
     // =========================
     // CHECKOUT
     // =========================
 
     const handleCheckout = async () => {
+
         if (cart.length === 0) {
             alert("Cart is empty");
             return;
@@ -244,7 +297,7 @@ function POS() {
 
         if (
             paymentMethod === "cash" &&
-            Number(amountPaid) < total
+            Number(amountPaid || 0) < total
         ) {
             alert(
                 `Insufficient payment!\n\n` +
@@ -258,23 +311,37 @@ function POS() {
         }
 
         try {
-            const response =
-                await axios.post(
-                    "http://localhost:5000/api/sales",
-                    {
-                        items: cart,
-                        payment_method:
-                            paymentMethod
-                    }
-                );
 
+            const response = await api.post(
+                "/sales",
+                {
+                    items: cart,
+
+                    payment_method:
+                        paymentMethod
+                }
+            );
+
+            // Get current logged-in cashier
+            const loggedInUser =
+                getLoggedInUser();
+
+            // Create completed receipt data
             setCompletedSale({
-                saleId: response.data.saleId,
-                totalAmount: Number(
-                    response.data.totalAmount
-                ),
+    saleId:
+        response.data.saleId,
+
+    invoiceNumber:
+        response.data.invoiceNumber,
+
+                totalAmount:
+                    Number(
+                        response.data.totalAmount
+                    ),
+
                 paymentMethod:
                     paymentMethod,
+
                 amountPaid:
                     paymentMethod === "cash"
                         ? Number(amountPaid)
@@ -282,6 +349,7 @@ function POS() {
                               response.data
                                   .totalAmount
                           ),
+
                 change:
                     paymentMethod === "cash"
                         ? Number(amountPaid) -
@@ -290,23 +358,45 @@ function POS() {
                                   .totalAmount
                           )
                         : 0,
-                items: cart.map((item) => ({
-                    name: item.name,
-                    quantity: item.quantity,
-                    price: Number(item.price),
-                    subtotal: Number(
-                        item.subtotal
-                    )
-                }))
+
+                cashierName:
+                    loggedInUser?.name ||
+                    "Cashier",
+
+                cashierEmail:
+                    loggedInUser?.email ||
+                    "",
+
+                items:
+                    cart.map((item) => ({
+                        name:
+                            item.name,
+
+                        quantity:
+                            item.quantity,
+
+                        price:
+                            Number(item.price),
+
+                        subtotal:
+                            Number(item.subtotal)
+                    }))
             });
 
+            // Clear cart
             setCart([]);
+
             setSelectedProduct("");
+
             setQuantity(1);
+
             setAmountPaid("");
 
+            // Refresh stock
             await fetchProducts();
+
         } catch (error) {
+
             console.error(
                 "Checkout error:",
                 error
@@ -324,8 +414,8 @@ function POS() {
 
             alert(
                 error.response?.data?.message ||
-                    error.message ||
-                    "Checkout failed"
+                error.message ||
+                "Checkout failed"
             );
         }
     };
@@ -336,6 +426,7 @@ function POS() {
 
     const filteredProducts =
         products.filter((product) => {
+
             const search =
                 productSearch.toLowerCase();
 
@@ -343,6 +434,7 @@ function POS() {
                 product.name
                     .toLowerCase()
                     .includes(search) ||
+
                 product.sku
                     .toLowerCase()
                     .includes(search)
@@ -354,6 +446,7 @@ function POS() {
     // =========================
 
     const selectProductFromCard = (product) => {
+
         if (
             Number(product.stock_quantity) <= 0
         ) {
@@ -388,13 +481,16 @@ function POS() {
         }
 
         if (existingItem) {
+
             setCart(
                 cart.map((item) =>
                     item.product_id === product.id
                         ? {
                               ...item,
+
                               quantity:
                                   item.quantity + 1,
+
                               subtotal:
                                   (item.quantity + 1) *
                                   Number(item.price)
@@ -402,14 +498,24 @@ function POS() {
                         : item
                 )
             );
+
         } else {
+
             setCart([
                 ...cart,
+
                 {
-                    product_id: product.id,
-                    name: product.name,
-                    price: Number(product.price),
+                    product_id:
+                        product.id,
+
+                    name:
+                        product.name,
+
+                    price:
+                        Number(product.price),
+
                     quantity: 1,
+
                     subtotal:
                         Number(product.price)
                 }
@@ -427,12 +533,16 @@ function POS() {
             <div className="pos-header">
 
                 <div>
-                    <h2>🛒 POS Billing</h2>
+
+                    <h2>
+                        🛒 POS Billing
+                    </h2>
 
                     <p>
                         Select products and create
                         a customer sale.
                     </p>
+
                 </div>
 
                 <div className="pos-cart-count">
@@ -441,7 +551,6 @@ function POS() {
 
             </div>
 
-
             {/* =========================
                 PRODUCT SELECTION
             ========================= */}
@@ -449,7 +558,11 @@ function POS() {
             <section className="pos-section">
 
                 <div className="pos-section-header">
-                    <h3>📦 Add Product to Cart</h3>
+
+                    <h3>
+                        📦 Add Product to Cart
+                    </h3>
+
                 </div>
 
                 {/* SEARCH */}
@@ -475,7 +588,6 @@ function POS() {
 
                 </div>
 
-
                 {/* PRODUCT CARDS */}
 
                 <div className="pos-product-grid">
@@ -483,9 +595,11 @@ function POS() {
                     {filteredProducts.length === 0 ? (
 
                         <div className="pos-empty-products">
+
                             <p>
                                 No products found.
                             </p>
+
                         </div>
 
                     ) : (
@@ -497,8 +611,6 @@ function POS() {
                                     key={product.id}
                                     className="pos-product-card"
                                 >
-
-                                    {/* IMAGE */}
 
                                     {product.image_url ? (
 
@@ -519,8 +631,6 @@ function POS() {
                                         </div>
 
                                     )}
-
-                                    {/* PRODUCT INFO */}
 
                                     <h3>
                                         {product.name}
@@ -579,14 +689,11 @@ function POS() {
                                     </button>
 
                                 </div>
-
                             )
                         )
-
                     )}
 
                 </div>
-
 
                 {/* EXISTING PRODUCT SELECT */}
 
@@ -631,12 +738,9 @@ function POS() {
                                             ) <= 0
                                         }
                                     >
-                                        {product.name}
-                                        {" "} - Rs.{" "}
-                                        {
-                                            product.price
-                                        }
-                                        {" "}(
+                                        {product.name} -
+                                        Rs.{" "}
+                                        {product.price} (
                                         {Number(
                                             product.stock_quantity
                                         ) > 0
@@ -644,14 +748,12 @@ function POS() {
                                             : "Out of Stock"}
                                         )
                                     </option>
-
                                 )
                             )}
 
                         </select>
 
                     </div>
-
 
                     <div className="pos-quantity-field">
 
@@ -674,7 +776,6 @@ function POS() {
 
                     </div>
 
-
                     <div className="pos-manual-button">
 
                         <button
@@ -689,7 +790,6 @@ function POS() {
                 </div>
 
             </section>
-
 
             {/* =========================
                 CART
@@ -707,6 +807,7 @@ function POS() {
 
                         <button
                             onClick={() => {
+
                                 if (
                                     window.confirm(
                                         "Are you sure you want to clear the cart?"
@@ -714,6 +815,7 @@ function POS() {
                                 ) {
                                     setCart([]);
                                 }
+
                             }}
                             className="pos-clear-button"
                         >
@@ -723,9 +825,6 @@ function POS() {
                     )}
 
                 </div>
-
-
-                {/* EMPTY CART */}
 
                 {cart.length === 0 ? (
 
@@ -760,8 +859,6 @@ function POS() {
                                     className="pos-cart-item"
                                 >
 
-                                    {/* PRODUCT */}
-
                                     <div className="pos-cart-product">
 
                                         <h3>
@@ -770,15 +867,12 @@ function POS() {
 
                                         <p>
                                             Rs.{" "}
-                                            {item.price.toFixed(
-                                                2
-                                            )}
+                                            {Number(
+                                                item.price
+                                            ).toFixed(2)}
                                         </p>
 
                                     </div>
-
-
-                                    {/* QUANTITY */}
 
                                     <div className="pos-cart-quantity">
 
@@ -812,9 +906,6 @@ function POS() {
 
                                     </div>
 
-
-                                    {/* SUBTOTAL */}
-
                                     <div className="pos-cart-subtotal">
 
                                         <span>
@@ -823,15 +914,12 @@ function POS() {
 
                                         <strong>
                                             Rs.{" "}
-                                            {item.subtotal.toFixed(
-                                                2
-                                            )}
+                                            {Number(
+                                                item.subtotal
+                                            ).toFixed(2)}
                                         </strong>
 
                                     </div>
-
-
-                                    {/* REMOVE */}
 
                                     <button
                                         onClick={() =>
@@ -845,16 +933,12 @@ function POS() {
                                     </button>
 
                                 </div>
-
                             )
                         )}
 
                     </div>
 
                 )}
-
-
-                {/* TOTAL */}
 
                 <div className="pos-total">
 
@@ -870,7 +954,6 @@ function POS() {
 
             </section>
 
-
             {/* =========================
                 PAYMENT
             ========================= */}
@@ -880,9 +963,6 @@ function POS() {
                 <h3 className="pos-payment-title">
                     💳 Payment
                 </h3>
-
-
-                {/* AMOUNT TO PAY */}
 
                 <div className="pos-amount-to-pay">
 
@@ -895,9 +975,6 @@ function POS() {
                     </span>
 
                 </div>
-
-
-                {/* PAYMENT METHOD */}
 
                 <label className="pos-payment-label">
                     Payment Method
@@ -939,16 +1016,13 @@ function POS() {
 
                 </div>
 
-
                 {/* CASH */}
 
                 {paymentMethod === "cash" && (
 
                     <div className="pos-cash-box">
 
-                        <label
-                            htmlFor="amountPaid"
-                        >
+                        <label htmlFor="amountPaid">
                             💵 Amount Paid
                         </label>
 
@@ -966,7 +1040,6 @@ function POS() {
                             placeholder="Enter amount received"
                         />
 
-
                         <div className="pos-change">
 
                             <span>
@@ -982,14 +1055,11 @@ function POS() {
                             >
                                 Rs.{" "}
                                 {change >= 0
-                                    ? change.toFixed(
-                                          2
-                                      )
+                                    ? change.toFixed(2)
                                     : "0.00"}
                             </span>
 
                         </div>
-
 
                         {Number(
                             amountPaid || 0
@@ -1002,13 +1072,10 @@ function POS() {
                                     ⚠️ Insufficient
                                     payment
                                 </p>
-
                             )}
 
                     </div>
-
                 )}
-
 
                 {/* CARD */}
 
@@ -1024,17 +1091,13 @@ function POS() {
                             Customer will pay{" "}
                             <strong>
                                 Rs.{" "}
-                                {total.toFixed(
-                                    2
-                                )}
+                                {total.toFixed(2)}
                             </strong>{" "}
                             by card.
                         </p>
 
                     </div>
-
                 )}
-
 
                 {/* CHECKOUT */}
 
@@ -1073,7 +1136,6 @@ function POS() {
 
             </section>
 
-
             {/* =========================
                 RECEIPT
             ========================= */}
@@ -1087,31 +1149,109 @@ function POS() {
                         className="receipt"
                     >
 
-                        <h2>
-                            🛒 EPOS SYSTEM
-                        </h2>
+                        {/* BUSINESS HEADER */}
 
-                        <p className="receipt-subtitle">
-                            Sales Receipt
-                        </p>
+                        <div className="receipt-header">
+
+                            <div className="receipt-logo">
+                                🛒
+                            </div>
+
+                            <h2>
+                                EPOS SYSTEM
+                            </h2>
+
+                            <p className="receipt-subtitle">
+                                Sales Receipt
+                            </p>
+
+                            <p className="receipt-business-info">
+                                Point of Sale System
+                            </p>
+
+                        </div>
+
+                        <hr />
+
+                        {/* SALE INFORMATION */}
+
+                        <div className="receipt-info">
+
+                            <div className="receipt-info-row">
+
+                                <span>
+                                    <strong>
+                                        Sale No:
+                                    </strong>
+                                </span>
+
+                                <span>
+                                    #{completedSale.saleId}
+                                </span>
+
+                            </div>
+
+                            <div className="receipt-info-row">
+
+                                <span>
+                                    <strong>
+                                        Date:
+                                    </strong>
+                                </span>
+
+                                <span>
+                                    {new Date().toLocaleDateString()}
+                                </span>
+
+                            </div>
+
+                            <div className="receipt-info-row">
+
+                                <span>
+                                    <strong>
+                                        Time:
+                                    </strong>
+                                </span>
+
+                                <span>
+                                    {new Date().toLocaleTimeString()}
+                                </span>
+
+                            </div>
+
+                            {/* ACTUAL CASHIER */}
+
+                            <div className="receipt-info-row">
+
+                                <span>
+                                    <strong>
+                                        Cashier:
+                                    </strong>
+                                </span>
+
+                                <span>
+                                    {completedSale.cashierName}
+                                </span>
+
+                            </div>
+
+                            <div className="receipt-info-row">
+    <span>
+        <strong>
+            Invoice:
+        </strong>
+    </span>
+
+    <span>
+        {completedSale.invoiceNumber}
+    </span>
+</div>
+
+                        </div>
 
                         <hr />
 
-                        <p>
-                            <strong>
-                                Sale ID:
-                            </strong>{" "}
-                            #{completedSale.saleId}
-                        </p>
-
-                        <p>
-                            <strong>
-                                Date:
-                            </strong>{" "}
-                            {new Date().toLocaleString()}
-                        </p>
-
-                        <hr />
+                        {/* PRODUCTS */}
 
                         <div className="receipt-table-container">
 
@@ -1134,7 +1274,7 @@ function POS() {
                                         </th>
 
                                         <th>
-                                            Subtotal
+                                            Amount
                                         </th>
 
                                     </tr>
@@ -1144,41 +1284,32 @@ function POS() {
                                 <tbody>
 
                                     {completedSale.items.map(
-                                        (
-                                            item,
-                                            index
-                                        ) => (
+                                        (item, index) => (
 
                                             <tr
-                                                key={
-                                                    index
-                                                }
+                                                key={index}
                                             >
 
                                                 <td>
-                                                    {
-                                                        item.name
-                                                    }
+                                                    {item.name}
                                                 </td>
 
                                                 <td>
-                                                    {
-                                                        item.quantity
-                                                    }
+                                                    {item.quantity}
                                                 </td>
 
                                                 <td>
                                                     Rs.{" "}
-                                                    {item.price.toFixed(
-                                                        2
-                                                    )}
+                                                    {Number(
+                                                        item.price
+                                                    ).toFixed(2)}
                                                 </td>
 
                                                 <td>
                                                     Rs.{" "}
-                                                    {item.subtotal.toFixed(
-                                                        2
-                                                    )}
+                                                    {Number(
+                                                        item.subtotal
+                                                    ).toFixed(2)}
                                                 </td>
 
                                             </tr>
@@ -1194,52 +1325,100 @@ function POS() {
 
                         <hr />
 
-                        <div className="receipt-total">
+                        {/* SUMMARY */}
 
-                            <span>
-                                TOTAL
-                            </span>
+                        <div className="receipt-summary">
 
-                            <span>
-                                Rs.{" "}
-                                {completedSale.totalAmount.toFixed(
-                                    2
-                                )}
-                            </span>
+                            <div className="receipt-summary-row">
+
+                                <span>
+                                    Total Items
+                                </span>
+
+                                <span>
+                                    {completedSale.items.reduce(
+                                        (total, item) =>
+                                            total +
+                                            Number(
+                                                item.quantity
+                                            ),
+                                        0
+                                    )}
+                                </span>
+
+                            </div>
+
+                            <div className="receipt-total">
+
+                                <span>
+                                    TOTAL
+                                </span>
+
+                                <span>
+                                    Rs.{" "}
+                                    {Number(
+                                        completedSale.totalAmount
+                                    ).toFixed(2)}
+                                </span>
+
+                            </div>
 
                         </div>
 
+                        <hr />
+
+                        {/* PAYMENT */}
+
                         <div className="receipt-payment">
 
-                            <p>
-                                <strong>
-                                    Payment:
-                                </strong>{" "}
-                                {completedSale.paymentMethod.toUpperCase()}
-                            </p>
+                            <div className="receipt-payment-row">
+
+                                <span>
+                                    <strong>
+                                        Payment Method
+                                    </strong>
+                                </span>
+
+                                <span>
+                                    {completedSale.paymentMethod.toUpperCase()}
+                                </span>
+
+                            </div>
 
                             {completedSale.paymentMethod ===
                                 "cash" && (
                                 <>
-                                    <p>
-                                        <strong>
-                                            Amount Paid:
-                                        </strong>{" "}
-                                        Rs.{" "}
-                                        {completedSale.amountPaid.toFixed(
-                                            2
-                                        )}
-                                    </p>
 
-                                    <p>
-                                        <strong>
-                                            Change:
-                                        </strong>{" "}
-                                        Rs.{" "}
-                                        {completedSale.change.toFixed(
-                                            2
-                                        )}
-                                    </p>
+                                    <div className="receipt-payment-row">
+
+                                        <span>
+                                            Amount Paid
+                                        </span>
+
+                                        <span>
+                                            Rs.{" "}
+                                            {Number(
+                                                completedSale.amountPaid
+                                            ).toFixed(2)}
+                                        </span>
+
+                                    </div>
+
+                                    <div className="receipt-payment-row receipt-change">
+
+                                        <span>
+                                            Change
+                                        </span>
+
+                                        <span>
+                                            Rs.{" "}
+                                            {Number(
+                                                completedSale.change
+                                            ).toFixed(2)}
+                                        </span>
+
+                                    </div>
+
                                 </>
                             )}
 
@@ -1247,33 +1426,51 @@ function POS() {
 
                         <hr />
 
-                        <p className="receipt-footer">
-                            Thank You! 🙏
-                        </p>
+                        {/* FOOTER */}
+
+                        <div className="receipt-footer">
+
+                            <p>
+                                Thank You! 🙏
+                            </p>
+
+                            <p>
+                                Please visit us again.
+                            </p>
+
+                            <p className="receipt-footer-small">
+                                Powered by EPOS System
+                            </p>
+
+                        </div>
 
                     </div>
 
+                    {/* RECEIPT ACTIONS */}
 
-                    <button
-                        onClick={() =>
-                            window.print()
-                        }
-                        className="receipt-print-button"
-                    >
-                        🖨️ Print Receipt
-                    </button>
+                    <div className="receipt-actions">
 
-                    <button
-                        onClick={() =>
-                            setCompletedSale(null)
-                        }
-                        className="receipt-close-button"
-                    >
-                        Close Receipt
-                    </button>
+                        <button
+                            onClick={() =>
+                                window.print()
+                            }
+                            className="receipt-print-button"
+                        >
+                            🖨️ Print Receipt
+                        </button>
+
+                        <button
+                            onClick={() =>
+                                setCompletedSale(null)
+                            }
+                            className="receipt-close-button"
+                        >
+                            ✕ Close Receipt
+                        </button>
+
+                    </div>
 
                 </div>
-
             )}
 
         </div>

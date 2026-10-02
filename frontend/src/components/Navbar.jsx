@@ -41,6 +41,15 @@ function Navbar({ setPage, user, onLogout }) {
                 🧾 Sales History
             </button>
 
+           {user.role === "admin" && (
+    <button
+        className="navbar-button"
+        onClick={() => setPage("reports")}
+    >
+        📊 Reports
+    </button>
+)}
+            
             {user.role === "admin" && (
     <button
         className="navbar-button"

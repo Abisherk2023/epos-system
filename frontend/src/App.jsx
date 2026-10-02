@@ -9,6 +9,7 @@ import Categories from "./pages/Categories";
 import POS from "./pages/POS";
 import SalesHistory from "./pages/SalesHistory";
 import Users from "./pages/Users";
+import Reports from "./pages/Reports";
 
 function App() {
 
@@ -72,7 +73,10 @@ function App() {
                     <SalesHistory />
                 )}
 
+                {page === "reports" && <Reports />}
+                
                 {page === "users" && user.role === "admin" && <Users />}
+                
 
             </div>
 

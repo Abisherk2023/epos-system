@@ -1,635 +1,536 @@
 import { useEffect, useState } from "react";
+
 import {
+    ResponsiveContainer,
+    LineChart,
+    Line,
+    BarChart,
+    Bar,
     PieChart,
     Pie,
     Cell,
-    Tooltip,
-    Legend,
-    ResponsiveContainer,
-    BarChart,
-    Bar,
     XAxis,
     YAxis,
-    CartesianGrid
+    CartesianGrid,
+    Tooltip,
+    Legend
 } from "recharts";
+
 import api from "../api/axios";
 
+
 function Dashboard() {
+
     const [dashboard, setDashboard] = useState({
         totalSales: 0,
         todaySales: 0,
+        totalTransactions: 0,
+        cashSales: 0,
+        cardSales: 0,
         totalProducts: 0,
         lowStockProducts: 0
     });
 
-    const [lowStockProducts, setLowStockProducts] = useState([]);
-
-    const [salesReport, setSalesReport] = useState({
-        totalTransactions: 0,
-        totalSales: 0,
-        todaySales: 0,
-        cashSales: 0,
-        cardSales: 0
-    });
-
-    const [productReport, setProductReport] = useState([]);
-
     const [dailySales, setDailySales] = useState([]);
 
-    const [selectedDate, setSelectedDate] = useState("");
+    const [productSales, setProductSales] = useState([]);
 
-    // =========================
-    // PAYMENT CHART DATA
-    // =========================
+    const [lowStockProducts, setLowStockProducts] =
+        useState([]);
 
-    const paymentChartData = [
-        {
-            name: "Cash",
-            value: Number(salesReport.cashSales)
-        },
-        {
-            name: "Card",
-            value: Number(salesReport.cardSales)
-        }
-    ];
+    const [loading, setLoading] = useState(true);
 
-    // =========================
-    // FETCH DASHBOARD
-    // =========================
+    const [error, setError] = useState("");
 
-    const fetchDashboard = async () => {
-        try {
-            const response = await axios.get(
-                "http://localhost:5000/api/sales/dashboard"
-            );
-
-            setDashboard(response.data);
-        } catch (error) {
-            console.error(
-                "Error fetching dashboard:",
-                error
-            );
-        }
-    };
-
-    // =========================
-    // FETCH SALES REPORT
-    // =========================
-
-    const fetchSalesReport = async (date = "") => {
-        try {
-            const url = date
-                ? `http://localhost:5000/api/sales/report?date=${date}`
-                : "http://localhost:5000/api/sales/report";
-
-            const response = await axios.get(url);
-
-            setSalesReport(response.data);
-        } catch (error) {
-            console.error(
-                "Error fetching sales report:",
-                error
-            );
-        }
-    };
-
-    // =========================
-    // FETCH PRODUCT REPORT
-    // =========================
-
-    const fetchProductReport = async (date = "") => {
-        try {
-            const url = date
-                ? `http://localhost:5000/api/sales/product-report?date=${date}`
-                : "http://localhost:5000/api/sales/product-report";
-
-            const response = await axios.get(url);
-
-            setProductReport(response.data);
-        } catch (error) {
-            console.error(
-                "Error fetching product sales report:",
-                error
-            );
-        }
-    };
-
-    // =========================
-    // FETCH DAILY SALES
-    // =========================
-
-    const fetchDailySales = async () => {
-        try {
-            const response = await axios.get(
-                "http://localhost:5000/api/sales/daily-report"
-            );
-
-            setDailySales(response.data);
-        } catch (error) {
-            console.error(
-                "Error fetching daily sales:",
-                error
-            );
-        }
-    };
-
-    // =========================
-    // FETCH LOW STOCK PRODUCTS
-    // =========================
-
-    const fetchLowStockProducts = async () => {
-        try {
-            const response = await axios.get(
-                "http://localhost:5000/api/products"
-            );
-
-            const lowStock = response.data.filter(
-                (product) =>
-                    Number(product.stock_quantity) <= 5
-            );
-
-            setLowStockProducts(lowStock);
-        } catch (error) {
-            console.error(
-                "Error fetching products:",
-                error
-            );
-        }
-    };
-
-    // =========================
-    // INITIAL LOAD
-    // =========================
 
     useEffect(() => {
-        fetchDashboard();
-        fetchLowStockProducts();
-        fetchSalesReport();
-        fetchProductReport();
-        fetchDailySales();
+
+        loadDashboard();
+
     }, []);
 
-    // =========================
-    // DATE CHANGE
-    // =========================
 
-    const handleDateChange = (e) => {
-        const date = e.target.value;
+    const loadDashboard = async () => {
 
-        setSelectedDate(date);
+        try {
 
-        fetchSalesReport(date);
-        fetchProductReport(date);
+            setLoading(true);
+
+            setError("");
+
+
+            const [
+                dashboardResponse,
+                dailySalesResponse,
+                productSalesResponse,
+                productsResponse
+            ] = await Promise.all([
+
+                api.get("/sales/dashboard"),
+
+                api.get("/sales/daily-report"),
+
+                api.get("/sales/product-report"),
+
+                api.get("/products")
+
+            ]);
+
+
+            /* =========================
+               DASHBOARD DATA
+            ========================= */
+
+            setDashboard({
+
+                totalSales:
+                    Number(
+                        dashboardResponse.data.totalSales
+                    ) || 0,
+
+                todaySales:
+                    Number(
+                        dashboardResponse.data.todaySales
+                    ) || 0,
+
+                totalTransactions:
+                    Number(
+                        dashboardResponse.data.totalTransactions
+                    ) || 0,
+
+                cashSales:
+                    Number(
+                        dashboardResponse.data.cashSales
+                    ) || 0,
+
+                cardSales:
+                    Number(
+                        dashboardResponse.data.cardSales
+                    ) || 0,
+
+                totalProducts:
+                    Number(
+                        dashboardResponse.data.totalProducts
+                    ) || 0,
+
+                lowStockProducts:
+                    Number(
+                        dashboardResponse.data.lowStockProducts
+                    ) || 0
+
+            });
+
+
+            /* =========================
+               DAILY SALES
+            ========================= */
+
+            const formattedDailySales =
+                dailySalesResponse.data.map(
+                    (item) => ({
+
+                        date: item.sale_date,
+
+                        sales:
+                            Number(
+                                item.total_sales
+                            ) || 0,
+
+                        transactions:
+                            Number(
+                                item.total_transactions
+                            ) || 0
+
+                    })
+                );
+
+
+            setDailySales(
+                formattedDailySales
+            );
+
+
+            /* =========================
+               PRODUCT SALES
+            ========================= */
+
+            const formattedProductSales =
+                productSalesResponse.data
+
+                    .map(
+                        (item) => ({
+
+                            name: item.name,
+
+                            quantity:
+                                Number(
+                                    item.quantity_sold
+                                ) || 0,
+
+                            revenue:
+                                Number(
+                                    item.total_revenue
+                                ) || 0
+
+                        })
+                    )
+
+                    .sort(
+                        (a, b) =>
+                            b.quantity -
+                            a.quantity
+                    )
+
+                    .slice(0, 10);
+
+
+            setProductSales(
+                formattedProductSales
+            );
+
+
+            /* =========================
+               LOW STOCK PRODUCTS
+            ========================= */
+
+            const lowStock =
+                productsResponse.data
+
+                    .filter(
+                        (product) =>
+                            Number(
+                                product.stock_quantity
+                            ) <= 5
+                    )
+
+                    .sort(
+                        (a, b) =>
+                            Number(
+                                a.stock_quantity
+                            ) -
+                            Number(
+                                b.stock_quantity
+                            )
+                    );
+
+
+            setLowStockProducts(
+                lowStock
+            );
+
+
+        } catch (error) {
+
+            console.error(
+                "Dashboard loading error:",
+                error
+            );
+
+
+            setError(
+                error.response?.data?.message ||
+                "Failed to load dashboard data"
+            );
+
+
+        } finally {
+
+            setLoading(false);
+
+        }
+
     };
 
-    // =========================
-    // SHOW ALL SALES
-    // =========================
 
-    const handleShowAllSales = () => {
-        setSelectedDate("");
+    /* =========================
+       PAYMENT CHART DATA
+    ========================= */
 
-        fetchSalesReport();
-        fetchProductReport();
-    };
+    const paymentData = [
+
+        {
+            name: "Cash",
+            value: dashboard.cashSales
+        },
+
+        {
+            name: "Card",
+            value: dashboard.cardSales
+        }
+
+    ];
+
+
+    /* =========================
+       LOADING
+    ========================= */
+
+    if (loading) {
+
+        return (
+
+            <div className="dashboard">
+
+                <h1>
+                    📊 Dashboard
+                </h1>
+
+                <p className="loading-message">
+                    Loading dashboard...
+                </p>
+
+            </div>
+
+        );
+
+    }
+
 
     return (
-        <div className="dashboard-page">
+
+        <div className="dashboard">
+
 
             {/* =========================
-                HEADER
+                DASHBOARD HEADER
             ========================= */}
 
             <div className="dashboard-header">
 
-                <h2>
-                    📊 EPOS Dashboard
-                </h2>
+                <div>
 
-                <p>
-                    Monitor your sales, products and
-                    inventory.
-                </p>
+                    <h1>
+                        📊 Dashboard
+                    </h1>
 
-            {/* =========================
-    TOP 5 PRODUCTS
-========================= */}
-
-<section className="dashboard-section">
-
-    <div className="section-header">
-
-        <h3>
-            🏆 Top 5 Products
-        </h3>
-
-    </div>
-
-    {productReport.length === 0 ? (
-
-        <div className="empty-state">
-
-            <p>
-                No product sales data found.
-            </p>
-
-        </div>
-
-    ) : (
-
-        <div className="top-products-list">
-
-            {productReport
-                .slice(0, 5)
-                .map((product, index) => (
-
-                    <div
-                        className="top-product-item"
-                        key={product.id}
-                    >
-
-                        <div className="top-product-rank">
-                            #{index + 1}
-                        </div>
-
-                        <div className="top-product-info">
-
-                            <strong>
-                                {product.name}
-                            </strong>
-
-                            <span>
-                                SKU: {product.sku}
-                            </span>
-
-                        </div>
-
-                        <div className="top-product-sales">
-
-                            <strong>
-                                {product.quantity_sold}
-                            </strong>
-
-                            <span>
-                                units sold
-                            </span>
-
-                        </div>
-
-                        <div className="top-product-revenue">
-
-                            <strong>
-                                Rs.{" "}
-                                {Number(
-                                    product.total_revenue
-                                ).toFixed(2)}
-                            </strong>
-
-                            <span>
-                                revenue
-                            </span>
-
-                        </div>
-
-                    </div>
-
-                ))}
-
-        </div>
-
-    )}
-
-</section>
-            
-            </div>
-
-
-            {/* =========================
-                DATE FILTER
-            ========================= */}
-
-            <div className="dashboard-filter-card">
-
-                <h3>
-                    📅 Sales Report
-                </h3>
-
-                <div className="dashboard-filter">
-
-                    <div className="date-field">
-
-                        <label htmlFor="reportDate">
-                            Select Date
-                        </label>
-
-                        <input
-                            id="reportDate"
-                            name="reportDate"
-                            type="date"
-                            value={selectedDate}
-                            onChange={handleDateChange}
-                        />
-
-                    </div>
-
-                    <div className="filter-button">
-
-                        <button
-                            className="show-all-button"
-                            onClick={handleShowAllSales}
-                        >
-                            Show All Sales
-                        </button>
-
-                    </div>
+                    <p>
+                        EPOS System Overview
+                    </p>
 
                 </div>
 
-                <p className="report-info">
 
-                    {selectedDate
-                        ? `Showing sales for ${selectedDate}`
-                        : "Showing all sales"}
-
-                </p>
+                <button
+                    className="primary-button"
+                    onClick={loadDashboard}
+                >
+                    🔄 Refresh
+                </button>
 
             </div>
 
 
             {/* =========================
-                METRICS CARDS
+                ERROR
+            ========================= */}
+
+            {error && (
+
+                <div className="error-message">
+
+                    {error}
+
+                </div>
+
+            )}
+
+
+            {/* =========================
+                SUMMARY CARDS
             ========================= */}
 
             <div className="dashboard-cards">
 
+
+                {/* TOTAL SALES */}
+
                 <div className="dashboard-card">
 
-                    <div className="card-icon">
+                    <div className="dashboard-card-icon">
                         💰
                     </div>
 
-                    <h3>
-                        Total Sales
-                    </h3>
+                    <div>
 
-                    <p className="card-amount">
-                        Rs.{" "}
-                        {Number(
-                            salesReport.totalSales
-                        ).toFixed(2)}
-                    </p>
+                        <p>
+                            Total Sales
+                        </p>
 
-                </div>
+                        <h2>
+                            Rs.{" "}
+                            {dashboard.totalSales.toFixed(2)}
+                        </h2>
 
-
-                <div className="dashboard-card">
-
-                    <div className="card-icon">
-                        📈
                     </div>
 
-                    <h3>
-                        Today's Sales
-                    </h3>
-
-                    <p className="card-amount">
-
-                        Rs.{" "}
-                        {Number(
-                            selectedDate
-                                ? salesReport.totalSales
-                                : dashboard.todaySales
-                        ).toFixed(2)}
-
-                    </p>
-
                 </div>
 
 
+                {/* TODAY SALES */}
+
                 <div className="dashboard-card">
 
-                    <div className="card-icon">
-                        📦
+                    <div className="dashboard-card-icon">
+                        📅
                     </div>
 
-                    <h3>
-                        Total Products
-                    </h3>
+                    <div>
 
-                    <p className="card-number">
-                        {dashboard.totalProducts}
-                    </p>
+                        <p>
+                            Today's Sales
+                        </p>
 
-                </div>
+                        <h2>
+                            Rs.{" "}
+                            {dashboard.todaySales.toFixed(2)}
+                        </h2>
 
-
-                <div className="dashboard-card">
-
-                    <div className="card-icon">
-                        ⚠️
                     </div>
 
-                    <h3>
-                        Low Stock Products
-                    </h3>
-
-                    <p className="card-number">
-                        {dashboard.lowStockProducts}
-                    </p>
-
                 </div>
 
 
+                {/* TRANSACTIONS */}
+
                 <div className="dashboard-card">
 
-                    <div className="card-icon">
+                    <div className="dashboard-card-icon">
                         🧾
                     </div>
 
-                    <h3>
-                        Total Transactions
-                    </h3>
-
-                    <p className="card-number">
-                        {salesReport.totalTransactions}
-                    </p>
-
-                </div>
-
-
-                <div className="dashboard-card">
-
-                    <div className="card-icon">
-                        💵
-                    </div>
-
-                    <h3>
-                        Cash Sales
-                    </h3>
-
-                    <p className="card-amount">
-                        Rs.{" "}
-                        {Number(
-                            salesReport.cashSales
-                        ).toFixed(2)}
-                    </p>
-
-                </div>
-
-
-                <div className="dashboard-card">
-
-                    <div className="card-icon">
-                        💳
-                    </div>
-
-                    <h3>
-                        Card Sales
-                    </h3>
-
-                    <p className="card-amount">
-                        Rs.{" "}
-                        {Number(
-                            salesReport.cardSales
-                        ).toFixed(2)}
-                    </p>
-
-                </div>
-
-            </div>
-
-
-            {/* =========================
-                PRODUCT SALES REPORT
-            ========================= */}
-
-            <section className="dashboard-section">
-
-                <div className="section-header">
-
-                    <h3>
-                        📊 Product Sales Report
-                    </h3>
-
-                </div>
-
-                {productReport.length === 0 ? (
-
-                    <div className="empty-state">
+                    <div>
 
                         <p>
-                            No product sales found.
+                            Total Transactions
                         </p>
 
-                    </div>
-
-                ) : (
-
-                    <div className="table-container">
-
-                        <table>
-
-                            <thead>
-
-                                <tr>
-                                    <th>Product</th>
-                                    <th>SKU</th>
-                                    <th>Quantity Sold</th>
-                                    <th>Total Revenue</th>
-                                </tr>
-
-                            </thead>
-
-                            <tbody>
-
-                                {productReport.map(
-                                    (product) => (
-
-                                        <tr
-                                            key={product.id}
-                                        >
-
-                                            <td>
-                                                {product.name}
-                                            </td>
-
-                                            <td>
-                                                {product.sku}
-                                            </td>
-
-                                            <td>
-                                                {
-                                                    product.quantity_sold
-                                                }
-                                            </td>
-
-                                            <td>
-                                                Rs.{" "}
-                                                {Number(
-                                                    product.total_revenue
-                                                ).toFixed(2)}
-                                            </td>
-
-                                        </tr>
-
-                                    )
-                                )}
-
-                            </tbody>
-
-                        </table>
+                        <h2>
+                            {dashboard.totalTransactions}
+                        </h2>
 
                     </div>
 
-                )}
+                </div>
 
-            </section>
+
+                {/* PRODUCTS */}
+
+                <div className="dashboard-card">
+
+                    <div className="dashboard-card-icon">
+                        📦
+                    </div>
+
+                    <div>
+
+                        <p>
+                            Total Products
+                        </p>
+
+                        <h2>
+                            {dashboard.totalProducts}
+                        </h2>
+
+                    </div>
+
+                </div>
+
+
+                {/* LOW STOCK */}
+
+                <div className="dashboard-card">
+
+                    <div className="dashboard-card-icon">
+                        ⚠️
+                    </div>
+
+                    <div>
+
+                        <p>
+                            Low Stock Products
+                        </p>
+
+                        <h2>
+                            {dashboard.lowStockProducts}
+                        </h2>
+
+                    </div>
+
+                </div>
+
+
+            </div>
 
 
             {/* =========================
                 LOW STOCK PRODUCTS
             ========================= */}
 
-            <section className="dashboard-section">
+            <div className="low-stock-section">
 
-                <div className="section-header">
 
-                    <h3>
-                        ⚠️ Low Stock Products
-                    </h3>
+                <div className="low-stock-header">
 
-                    <span className="stock-count">
-                        {lowStockProducts.length} items
+                    <div>
+
+                        <h2>
+                            ⚠️ Low Stock Alert
+                        </h2>
+
+                        <p>
+                            Products that need restocking
+                        </p>
+
+                    </div>
+
+
+                    <span className="low-stock-count">
+
+                        {lowStockProducts.length}
+
                     </span>
 
                 </div>
 
+
                 {lowStockProducts.length === 0 ? (
 
-                    <div className="empty-state">
+                    <div className="stock-success">
 
-                        <p>
-                            ✅ No low stock products.
-                        </p>
+                        ✅ All products have sufficient stock.
 
                     </div>
 
                 ) : (
 
-                    <div className="table-container">
+                    <div className="low-stock-table-container">
 
-                        <table>
+                        <table className="low-stock-table">
 
                             <thead>
 
                                 <tr>
-                                    <th>ID</th>
-                                    <th>Product</th>
-                                    <th>SKU</th>
-                                    <th>Stock</th>
+
+                                    <th>
+                                        Product
+                                    </th>
+
+                                    <th>
+                                        SKU
+                                    </th>
+
+                                    <th>
+                                        Category
+                                    </th>
+
+                                    <th>
+                                        Stock
+                                    </th>
+
                                 </tr>
 
                             </thead>
+
 
                             <tbody>
 
@@ -641,16 +542,24 @@ function Dashboard() {
                                         >
 
                                             <td>
-                                                {product.id}
+
+                                                <strong>
+                                                    {product.name}
+                                                </strong>
+
                                             </td>
 
-                                            <td>
-                                                {product.name}
-                                            </td>
 
                                             <td>
                                                 {product.sku}
                                             </td>
+
+
+                                            <td>
+                                                {product.category_name ||
+                                                    "Uncategorized"}
+                                            </td>
+
 
                                             <td>
 
@@ -658,14 +567,18 @@ function Dashboard() {
                                                     className={
                                                         Number(
                                                             product.stock_quantity
-                                                        ) <= 2
-                                                            ? "stock-danger"
-                                                            : "stock-warning"
+                                                        ) === 0
+                                                            ? "stock-out"
+                                                            : "stock-low"
                                                     }
                                                 >
-                                                    {
+
+                                                    {Number(
                                                         product.stock_quantity
-                                                    }
+                                                    ) === 0
+                                                        ? "OUT OF STOCK"
+                                                        : `${product.stock_quantity} left`}
+
                                                 </span>
 
                                             </td>
@@ -683,142 +596,162 @@ function Dashboard() {
 
                 )}
 
-            </section>
+            </div>
 
 
             {/* =========================
-                PAYMENT METHOD SALES
+                PAYMENT SUMMARY
             ========================= */}
 
-            <section className="dashboard-section">
+            <div className="payment-summary">
 
-                <div className="section-header">
 
-                    <h3>
-                        💳 Payment Method Sales
-                    </h3>
+                <div className="payment-summary-header">
 
-                </div>
+                    <h2>
+                        💳 Payment Summary
+                    </h2>
 
-                <div className="payment-chart-container">
-
-                    <ResponsiveContainer
-                        width="100%"
-                        height={350}
-                    >
-
-                        <PieChart>
-
-                            <Pie
-                                data={paymentChartData}
-                                dataKey="value"
-                                nameKey="name"
-                                cx="50%"
-                                cy="50%"
-                                outerRadius={110}
-                                label
-                            >
-
-                                {paymentChartData.map(
-                                    (entry, index) => (
-
-                                        <Cell
-                                            key={`cell-${index}`}
-                                        />
-
-                                    )
-                                )}
-
-                            </Pie>
-
-                            <Tooltip
-                                formatter={(value) =>
-                                    `Rs. ${Number(
-                                        value
-                                    ).toFixed(2)}`
-                                }
-                            />
-
-                            <Legend />
-
-                        </PieChart>
-
-                    </ResponsiveContainer>
+                    <p>
+                        Total sales by payment method
+                    </p>
 
                 </div>
 
-            </section>
+
+                <div className="payment-summary-cards">
+
+
+                    {/* CASH */}
+
+                    <div className="payment-summary-card cash">
+
+                        <div className="payment-icon">
+                            💵
+                        </div>
+
+                        <div>
+
+                            <p>
+                                Cash Sales
+                            </p>
+
+                            <h2>
+                                Rs.{" "}
+                                {dashboard.cashSales.toFixed(2)}
+                            </h2>
+
+                        </div>
+
+                    </div>
+
+
+                    {/* CARD */}
+
+                    <div className="payment-summary-card card">
+
+                        <div className="payment-icon">
+                            💳
+                        </div>
+
+                        <div>
+
+                            <p>
+                                Card Sales
+                            </p>
+
+                            <h2>
+                                Rs.{" "}
+                                {dashboard.cardSales.toFixed(2)}
+                            </h2>
+
+                        </div>
+
+                    </div>
+
+
+                </div>
+
+            </div>
 
 
             {/* =========================
-                DAILY SALES
+                PAYMENT METHOD CHART
             ========================= */}
 
-            <section className="dashboard-section">
+            <div className="dashboard-chart-card">
 
-                <div className="section-header">
 
-                    <h3>
-                        📈 Daily Sales
-                    </h3>
+                <div className="dashboard-chart-header">
 
-                </div>
+                    <div>
 
-                {dailySales.length === 0 ? (
-
-                    <div className="empty-state">
+                        <h2>
+                            💳 Payment Methods
+                        </h2>
 
                         <p>
-                            No daily sales data found.
+                            Sales distribution by payment method
                         </p>
+
+                    </div>
+
+                </div>
+
+
+                {dashboard.cashSales === 0 &&
+                dashboard.cardSales === 0 ? (
+
+                    <div className="empty-message">
+
+                        No payment data available.
 
                     </div>
 
                 ) : (
 
-                    <div className="daily-sales-chart">
+                    <div className="payment-chart">
 
                         <ResponsiveContainer
                             width="100%"
                             height={350}
                         >
 
-                            <BarChart
-                                data={dailySales}
-                                margin={{
-                                    top: 20,
-                                    right: 20,
-                                    left: 10,
-                                    bottom: 20
-                                }}
-                            >
+                            <PieChart>
 
-                                <CartesianGrid
-                                    strokeDasharray="3 3"
-                                />
+                                <Pie
+                                    data={paymentData}
+                                    dataKey="value"
+                                    nameKey="name"
+                                    cx="50%"
+                                    cy="50%"
+                                    outerRadius={120}
+                                    label
+                                >
 
-                                <XAxis
-                                    dataKey="sale_date"
-                                />
+                                    {paymentData.map(
+                                        (entry, index) => (
 
-                                <YAxis />
+                                            <Cell
+                                                key={`cell-${index}`}
+                                            />
+
+                                        )
+                                    )}
+
+                                </Pie>
+
 
                                 <Tooltip
                                     formatter={(value) =>
-                                        `Rs. ${Number(
-                                            value
-                                        ).toFixed(2)}`
+                                        `Rs. ${Number(value).toFixed(2)}`
                                     }
                                 />
 
+
                                 <Legend />
 
-                                <Bar
-                                    dataKey="total_sales"
-                                    name="Sales"
-                                />
-
-                            </BarChart>
+                            </PieChart>
 
                         </ResponsiveContainer>
 
@@ -826,92 +759,176 @@ function Dashboard() {
 
                 )}
 
-            </section>
+            </div>
 
 
             {/* =========================
-                BEST-SELLING PRODUCTS
+                DAILY SALES CHART
             ========================= */}
 
-            <section className="dashboard-section">
+            <div className="dashboard-chart-card">
 
-                <div className="section-header">
 
-                    <h3>
-                        🏆 Best-Selling Products
-                    </h3>
+                <div className="dashboard-chart-header">
+
+                    <div>
+
+                        <h2>
+                            📈 Daily Sales
+                        </h2>
+
+                        <p>
+                            Sales performance by day
+                        </p>
+
+                    </div>
 
                 </div>
 
-                {productReport.length === 0 ? (
 
-                    <div className="empty-state">
+                {dailySales.length === 0 ? (
 
-                        <p>
-                            No product sales data found.
-                        </p>
+                    <div className="empty-message">
+
+                        No sales data available.
 
                     </div>
 
                 ) : (
 
-                    <div className="best-selling-chart">
+                    <ResponsiveContainer
+                        width="100%"
+                        height={350}
+                    >
 
-                        <ResponsiveContainer
-                            width="100%"
-                            height={400}
+                        <LineChart
+                            data={dailySales}
+                            margin={{
+                                top: 20,
+                                right: 30,
+                                left: 20,
+                                bottom: 10
+                            }}
                         >
 
-                            <BarChart
-                                data={productReport}
-                                layout="vertical"
-                                margin={{
-                                    top: 20,
-                                    right: 30,
-                                    left: 30,
-                                    bottom: 20
+                            <CartesianGrid
+                                strokeDasharray="3 3"
+                            />
+
+                            <XAxis
+                                dataKey="date"
+                            />
+
+                            <YAxis />
+
+                            <Tooltip />
+
+                            <Legend />
+
+                            <Line
+                                type="monotone"
+                                dataKey="sales"
+                                name="Sales (Rs.)"
+                                strokeWidth={3}
+                                activeDot={{
+                                    r: 7
                                 }}
-                            >
+                            />
 
-                                <CartesianGrid
-                                    strokeDasharray="3 3"
-                                />
+                        </LineChart>
 
-                                <XAxis
-                                    type="number"
-                                />
-
-                                <YAxis
-                                    type="category"
-                                    dataKey="name"
-                                    width={120}
-                                />
-
-                                <Tooltip
-                                    formatter={(value) =>
-                                        `${value} units`
-                                    }
-                                />
-
-                                <Legend />
-
-                                <Bar
-                                    dataKey="quantity_sold"
-                                    name="Quantity Sold"
-                                />
-
-                            </BarChart>
-
-                        </ResponsiveContainer>
-
-                    </div>
+                    </ResponsiveContainer>
 
                 )}
 
-            </section>
+            </div>
+
+
+            {/* =========================
+                TOP SELLING PRODUCTS
+            ========================= */}
+
+            <div className="dashboard-chart-card">
+
+
+                <div className="dashboard-chart-header">
+
+                    <div>
+
+                        <h2>
+                            🏆 Top Selling Products
+                        </h2>
+
+                        <p>
+                            Products with the highest sales quantity
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                {productSales.length === 0 ? (
+
+                    <div className="empty-message">
+
+                        No product sales data available.
+
+                    </div>
+
+                ) : (
+
+                    <ResponsiveContainer
+                        width="100%"
+                        height={400}
+                    >
+
+                        <BarChart
+                            data={productSales}
+                            margin={{
+                                top: 20,
+                                right: 30,
+                                left: 20,
+                                bottom: 70
+                            }}
+                        >
+
+                            <CartesianGrid
+                                strokeDasharray="3 3"
+                            />
+
+                            <XAxis
+                                dataKey="name"
+                                angle={-35}
+                                textAnchor="end"
+                                interval={0}
+                            />
+
+                            <YAxis />
+
+                            <Tooltip />
+
+                            <Legend />
+
+                            <Bar
+                                dataKey="quantity"
+                                name="Quantity Sold"
+                            />
+
+                        </BarChart>
+
+                    </ResponsiveContainer>
+
+                )}
+
+            </div>
+
 
         </div>
+
     );
+
 }
+
 
 export default Dashboard;
