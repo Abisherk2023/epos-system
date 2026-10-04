@@ -53,8 +53,8 @@ select {
 
 input:focus,
 select:focus {
-    border-color: #2563eb;
-    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+    border-color: #ec4899;
+    box-shadow: 0 0 0 2px rgba(236, 72, 153, 0.15);
 }
 
 h1,
@@ -102,7 +102,7 @@ table {
 }
 
 th {
-    background: #2563eb;
+    background: #ec4899;
     color: white;
     padding: 12px;
     text-align: left;
@@ -190,7 +190,8 @@ tr:hover {
     background: linear-gradient(
         135deg,
         #1e3a8a,
-        #2563eb
+        #be185d,
+        #ec4899
     );
     flex-wrap: wrap;
     box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
@@ -1305,8 +1306,8 @@ tr:hover {
     padding: 18px;
     background: linear-gradient(
         135deg,
-        #1e3a8a,
-        #2563eb
+        #be185d,
+        #ec4899
     );
     color: white;
     border-radius: 10px;
@@ -2263,8 +2264,8 @@ tr:hover {
 
     background: linear-gradient(
         135deg,
-        #1e3a8a,
-        #2563eb
+        #be185d,
+        #ec4899
     );
 }
 
@@ -2288,7 +2289,7 @@ tr:hover {
 
 .login-card h2 {
     margin-bottom: 5px;
-    color: #1e3a8a;
+    color: #be185d;
 }
 
 .login-subtitle {
@@ -2313,7 +2314,7 @@ tr:hover {
     margin-top: 10px;
     padding: 12px;
 
-    background: #2563eb;
+    background: #ec4899;
     color: white;
 
     font-size: 16px;
@@ -2387,7 +2388,7 @@ tr:hover {
 }
 
 .user-count {
-    background: #2563eb;
+    background: #ec4899;
     color: white;
     padding: 8px 15px;
     border-radius: 20px;
@@ -2457,7 +2458,7 @@ tr:hover {
 }
 
 .create-user-button {
-    background: #2563eb;
+    background: #ec4899;
     color: white;
     width: 100%;
 }
