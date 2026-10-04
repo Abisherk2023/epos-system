@@ -3375,3 +3375,122 @@ tr:hover {
         display: none !important;
     }
 }
+
+/* =========================
+   REPORT PRINT STYLES
+========================= */
+
+@media print {
+
+    /* Hide everything by default */
+    body * {
+        visibility: hidden;
+    }
+
+    /* Show the reports page */
+    .reports-page,
+    .reports-page * {
+        visibility: visible;
+    }
+
+    /* Make the report start at the top */
+    .reports-page {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        padding: 20px;
+        margin: 0;
+        background: white;
+    }
+
+    /* Hide filters while printing */
+    .report-filters {
+        display: none !important;
+    }
+
+    /* Hide buttons */
+    button {
+        display: none !important;
+    }
+
+    /* Hide error/loading messages */
+    .error-message,
+    .loading-message {
+        display: none !important;
+    }
+
+    /* Remove shadows for clean printing */
+    .report-card,
+    .report-table-container {
+        box-shadow: none !important;
+        border: 1px solid #ddd;
+    }
+
+    /* Keep summary cards in one row */
+    .report-summary {
+        display: grid !important;
+        grid-template-columns: repeat(4, 1fr) !important;
+        gap: 10px;
+        margin-bottom: 20px;
+    }
+
+    .report-card {
+        padding: 12px;
+    }
+
+    .report-card-icon {
+        font-size: 22px;
+    }
+
+    .report-card h2 {
+        font-size: 18px;
+    }
+
+    /* Tables */
+    .report-table-container {
+        width: 100%;
+        margin-bottom: 20px;
+        page-break-inside: auto;
+    }
+
+    .report-table-container + .report-table-container {
+        margin-top: 20px;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    th,
+    td {
+        border: 1px solid #ccc;
+        padding: 8px;
+        text-align: left;
+    }
+
+    th {
+        font-weight: bold;
+    }
+
+    tr {
+        page-break-inside: avoid;
+    }
+
+    /* Keep headings with their tables */
+    .report-table-header {
+        page-break-after: avoid;
+    }
+
+    /* Remove rounded corners */
+    .report-card,
+    .report-table-container {
+        border-radius: 0;
+    }
+
+    /* Prevent unnecessary page margins */
+    @page {
+        margin: 15mm;
+    }
+}

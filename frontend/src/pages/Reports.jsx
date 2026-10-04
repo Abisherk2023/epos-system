@@ -2,9 +2,7 @@ import { useEffect, useState } from "react";
 import api from "../api/axios";
 
 function Reports() {
-
     const [report, setReport] = useState(null);
-
     const [users, setUsers] = useState([]);
 
     const [date, setDate] = useState("");
@@ -14,191 +12,176 @@ function Reports() {
     const [productReport, setProductReport] = useState([]);
 
     const [loading, setLoading] = useState(false);
+    const [usersLoading, setUsersLoading] = useState(false);
     const [error, setError] = useState("");
-    
-    const exportCSV = () => {
 
-    if (!report || !report.sales || report.sales.length === 0) {
-        alert("No sales data available to export.");
-        return;
-    }
+    // =========================
+    // FORMAT CURRENCY
+    // =========================
 
-    const headers = [
-        "Sale ID",
-        "Date",
-        "Cashier",
-        "Total Amount",
-        "Payment Method"
-    ];
+    const formatCurrency = (amount) => {
+        return Number(amount || 0).toFixed(2);
+    };
 
-    const rows = report.sales.map((sale) => [
-        sale.id,
-        new Date(sale.created_at).toLocaleString(),
-        sale.cashier_name || "Unknown",
-        Number(sale.total_amount).toFixed(2),
-        sale.payment_method
-    ]);
+    // =========================
+    // FORMAT DATE
+    // =========================
 
-    const csvContent = [
-        headers,
-        ...rows
-    ]
-        .map((row) =>
-            row
-                .map((value) =>
-                    `"${String(value).replace(/"/g, '""')}"`
-                )
-                .join(",")
-        )
-        .join("\n");
-
-    const blob = new Blob(
-        [csvContent],
-        {
-            type: "text/csv;charset=utf-8;"
+    const formatDateTime = (dateValue) => {
+        if (!dateValue) {
+            return "N/A";
         }
-    );
 
-    const url = URL.createObjectURL(blob);
+        const dateObject = new Date(dateValue);
 
-    const link = document.createElement("a");
+        if (Number.isNaN(dateObject.getTime())) {
+            return "N/A";
+        }
 
-    link.href = url;
+        return dateObject.toLocaleString();
+    };
 
-    link.download = `epos-sales-report-${date || "all"}.csv`;
-
-    document.body.appendChild(link);
-
-    link.click();
-
-    document.body.removeChild(link);
-
-    URL.revokeObjectURL(url);
-};
     // =========================
     // LOAD CASHIERS
     // =========================
 
     const fetchUsers = async () => {
-
         try {
+            setUsersLoading(true);
 
-            const response =
-                await api.get("/users");
+            const response = await api.get("/users");
 
-            setUsers(response.data);
-
+            setUsers(
+                Array.isArray(response.data)
+                    ? response.data
+                    : []
+            );
         } catch (error) {
-
             console.error(
                 "Failed to load users:",
                 error
             );
 
+            setUsers([]);
+        } finally {
+            setUsersLoading(false);
         }
-
     };
 
     // =========================
     // LOAD SALES REPORT
     // =========================
 
-    const fetchReport = async () => {
-
+    const fetchReport = async (
+        customFilters = null
+    ) => {
         try {
-
-            setLoading(true);
-            setError("");
-
             const params = {};
 
-            if (date) {
-                params.date = date;
+            const filters =
+                customFilters || {
+                    date,
+                    userId,
+                    paymentMethod
+                };
+
+            if (filters.date) {
+                params.date = filters.date;
             }
 
-            if (userId) {
-                params.user_id = userId;
+            if (filters.userId) {
+                params.user_id = filters.userId;
             }
 
-            if (paymentMethod) {
+            if (filters.paymentMethod) {
                 params.payment_method =
-                    paymentMethod;
+                    filters.paymentMethod;
             }
 
-            const response =
-                await api.get(
-                    "/sales/report",
-                    { params }
-                );
+            const response = await api.get(
+                "/sales/report",
+                { params }
+            );
 
             setReport(response.data);
 
+            return response.data;
         } catch (error) {
-
             console.error(
-                "Failed to load report:",
+                "Failed to load sales report:",
                 error
             );
 
-            setError(
-                error.response?.data?.message ||
-                "Failed to load sales report"
-            );
-
-        } finally {
-
-            setLoading(false);
-
+            throw error;
         }
-
     };
 
     // =========================
     // LOAD PRODUCT SALES REPORT
     // =========================
 
-    const fetchProductReport = async () => {
-
+    const fetchProductReport = async (
+        customDate = date
+    ) => {
         try {
-
             const params = {};
 
-            if (date) {
-                params.date = date;
+            if (customDate) {
+                params.date = customDate;
             }
 
-            const response =
-                await api.get(
-                    "/sales/product-report",
-                    { params }
-                );
-
-            setProductReport(
-                response.data
+            const response = await api.get(
+                "/sales/product-report",
+                { params }
             );
 
-        } catch (error) {
+            setProductReport(
+                Array.isArray(response.data)
+                    ? response.data
+                    : []
+            );
 
+            return response.data;
+        } catch (error) {
             console.error(
                 "Failed to load product report:",
                 error
             );
 
+            throw error;
         }
-
     };
 
     // =========================
     // LOAD ALL REPORT DATA
     // =========================
 
-    const loadReports = async () => {
+    const loadReports = async (
+        customFilters = null
+    ) => {
+        try {
+            setLoading(true);
+            setError("");
 
-        await Promise.all([
-            fetchReport(),
-            fetchProductReport()
-        ]);
+            const filters =
+                customFilters || {
+                    date,
+                    userId,
+                    paymentMethod
+                };
 
+            await Promise.all([
+                fetchReport(filters),
+                fetchProductReport(filters.date)
+            ]);
+        } catch (error) {
+            setError(
+                error.response?.data?.message ||
+                "Failed to load sales report."
+            );
+        } finally {
+            setLoading(false);
+        }
     };
 
     // =========================
@@ -206,10 +189,8 @@ function Reports() {
     // =========================
 
     useEffect(() => {
-
         fetchUsers();
         loadReports();
-
     }, []);
 
     // =========================
@@ -217,70 +198,130 @@ function Reports() {
     // =========================
 
     const handleApplyFilters = () => {
-
-        loadReports();
-
+        loadReports({
+            date,
+            userId,
+            paymentMethod
+        });
     };
 
     // =========================
     // CLEAR FILTERS
     // =========================
 
-    const clearFilters = async () => {
-
+    const clearFilters = () => {
         setDate("");
         setUserId("");
         setPaymentMethod("");
 
-        // Load all reports without filters
-        try {
+        loadReports({
+            date: "",
+            userId: "",
+            paymentMethod: ""
+        });
+    };
 
-            setLoading(true);
-            setError("");
+    // =========================
+    // EXPORT CSV
+    // =========================
 
-            const [
-                reportResponse,
-                productResponse
-            ] = await Promise.all([
-
-                api.get("/sales/report"),
-
-                api.get(
-                    "/sales/product-report"
-                )
-
-            ]);
-
-            setReport(
-                reportResponse.data
+    const exportCSV = () => {
+        if (
+            !report ||
+            !Array.isArray(report.sales) ||
+            report.sales.length === 0
+        ) {
+            alert(
+                "No sales data available to export."
             );
-
-            setProductReport(
-                productResponse.data
-            );
-
-        } catch (error) {
-
-            console.error(
-                "Failed to clear filters:",
-                error
-            );
-
-            setError(
-                error.response?.data?.message ||
-                "Failed to load sales report"
-            );
-
-        } finally {
-
-            setLoading(false);
-
+            return;
         }
 
+        const headers = [
+            "Sale ID",
+            "Invoice Number",
+            "Date",
+            "Cashier",
+            "Total Amount",
+            "Payment Method"
+        ];
+
+        const rows = report.sales.map(
+            (sale) => [
+                sale.id,
+                sale.invoice_number ||
+                    `SALE-${sale.id}`,
+                formatDateTime(
+                    sale.created_at
+                ),
+                sale.cashier_name ||
+                    "Unknown",
+                formatCurrency(
+                    sale.total_amount
+                ),
+                sale.payment_method ||
+                    "N/A"
+            ]
+        );
+
+        const csvContent = [
+            headers,
+            ...rows
+        ]
+            .map((row) =>
+                row
+                    .map((value) => {
+                        const text =
+                            String(value ?? "");
+
+                        return `"${text.replace(
+                            /"/g,
+                            '""'
+                        )}"`;
+                    })
+                    .join(",")
+            )
+            .join("\n");
+
+        const blob = new Blob(
+            [csvContent],
+            {
+                type:
+                    "text/csv;charset=utf-8;"
+            }
+        );
+
+        const url =
+            URL.createObjectURL(blob);
+
+        const link =
+            document.createElement("a");
+
+        link.href = url;
+
+        link.download =
+            `epos-sales-report-${
+                date || "all"
+            }.csv`;
+
+        document.body.appendChild(link);
+
+        link.click();
+
+        document.body.removeChild(link);
+
+        URL.revokeObjectURL(url);
+    };
+
+    // =========================
+    // PRINT REPORT
+    // =========================
+
+    const printReport = () => {
+        window.print();
     };
 
     return (
-
         <div className="reports-page">
 
             {/* =========================
@@ -345,28 +386,31 @@ function Reports() {
                                 e.target.value
                             )
                         }
+                        disabled={usersLoading}
                     >
 
                         <option value="">
                             All Cashiers
                         </option>
 
-                        {users.map((user) => (
+                        {users.map(
+                            (user) => (
 
-                            <option
-                                key={user.id}
-                                value={user.id}
-                            >
-                                {user.name}
-                            </option>
+                                <option
+                                    key={user.id}
+                                    value={user.id}
+                                >
+                                    {user.name}
+                                </option>
 
-                        ))}
+                            )
+                        )}
 
                     </select>
 
                 </div>
 
-                {/* PAYMENT */}
+                {/* PAYMENT METHOD */}
 
                 <div className="filter-group">
 
@@ -403,14 +447,17 @@ function Reports() {
 
                 <div className="filter-buttons">
 
-
                     <button
                         className="primary-button"
                         onClick={
                             handleApplyFilters
                         }
+                        disabled={loading}
                     >
-                        🔍 Apply Filters
+                        🔍{" "}
+                        {loading
+                            ? "Loading..."
+                            : "Apply Filters"}
                     </button>
 
                     <button
@@ -418,23 +465,40 @@ function Reports() {
                         onClick={
                             clearFilters
                         }
+                        disabled={loading}
                     >
                         🔄 Clear
                     </button>
 
                     <button
-    className="secondary-button"
-    onClick={exportCSV}
->
-    📥 Export CSV
-</button>
+                        className="secondary-button"
+                        onClick={
+                            exportCSV
+                        }
+                        disabled={
+                            loading ||
+                            !report ||
+                            !report.sales ||
+                            report.sales.length ===
+                                0
+                        }
+                    >
+                        📥 Export CSV
+                    </button>
 
-<button
-    className="secondary-button"
-    onClick={() => window.print()}
->
-    🖨️ Print Report
-</button>
+                    <button
+                        className="secondary-button"
+                        onClick={
+                            printReport
+                        }
+                        disabled={
+                            loading ||
+                            !report
+                        }
+                    >
+                        🖨️ Print Report
+                    </button>
+
                 </div>
 
             </div>
@@ -521,9 +585,9 @@ function Reports() {
 
                                 <h2>
                                     Rs.{" "}
-                                    {Number(
+                                    {formatCurrency(
                                         report.totalSales
-                                    ).toFixed(2)}
+                                    )}
                                 </h2>
 
                             </div>
@@ -546,9 +610,9 @@ function Reports() {
 
                                 <h2>
                                     Rs.{" "}
-                                    {Number(
+                                    {formatCurrency(
                                         report.cashSales
-                                    ).toFixed(2)}
+                                    )}
                                 </h2>
 
                             </div>
@@ -571,9 +635,9 @@ function Reports() {
 
                                 <h2>
                                     Rs.{" "}
-                                    {Number(
+                                    {formatCurrency(
                                         report.cardSales
-                                    ).toFixed(2)}
+                                    )}
                                 </h2>
 
                             </div>
@@ -597,20 +661,23 @@ function Reports() {
                                 </h2>
 
                                 <p>
-                                    {report.date}
+                                    {date
+                                        ? `Filtered date: ${date}`
+                                        : "All sales"}
                                 </p>
 
                             </div>
 
                         </div>
 
-                        {report.sales.length === 0 ? (
+                        {!report.sales ||
+                        report.sales.length ===
+                            0 ? (
 
                             <div className="empty-message">
 
-                                No sales found
-                                for the selected
-                                filters.
+                                No sales found for
+                                the selected filters.
 
                             </div>
 
@@ -626,6 +693,10 @@ function Reports() {
 
                                             <th>
                                                 Sale ID
+                                            </th>
+
+                                            <th>
+                                                Invoice
                                             </th>
 
                                             <th>
@@ -672,9 +743,22 @@ function Reports() {
 
                                                     <td>
 
-                                                        {new Date(
-                                                            sale.created_at
-                                                        ).toLocaleString()}
+                                                        <strong>
+                                                            {
+                                                                sale.invoice_number ||
+                                                                `SALE-${sale.id}`
+                                                            }
+                                                        </strong>
+
+                                                    </td>
+
+                                                    <td>
+
+                                                        {
+                                                            formatDateTime(
+                                                                sale.created_at
+                                                            )
+                                                        }
 
                                                     </td>
 
@@ -694,18 +778,19 @@ function Reports() {
 
                                                         <span
                                                             className={
-                                                                sale.payment_method
-                                                                    ?.toLowerCase() ===
+                                                                String(
+                                                                    sale.payment_method ||
+                                                                    ""
+                                                                ).toLowerCase() ===
                                                                 "cash"
                                                                     ? "payment-cash"
                                                                     : "payment-card"
                                                             }
                                                         >
-
-                                                            {
-                                                                sale.payment_method
-                                                            }
-
+                                                            {String(
+                                                                sale.payment_method ||
+                                                                "N/A"
+                                                            ).toUpperCase()}
                                                         </span>
 
                                                     </td>
@@ -714,10 +799,8 @@ function Reports() {
 
                                                         <strong>
                                                             Rs.{" "}
-                                                            {Number(
+                                                            {formatCurrency(
                                                                 sale.total_amount
-                                                            ).toFixed(
-                                                                2
                                                             )}
                                                         </strong>
 
@@ -754,14 +837,15 @@ function Reports() {
 
                                 <p>
                                     Products sold during
-                                    the selected period
+                                    the selected period.
                                 </p>
 
                             </div>
 
                         </div>
 
-                        {productReport.length === 0 ? (
+                        {productReport.length ===
+                        0 ? (
 
                             <div className="empty-message">
 
@@ -802,7 +886,9 @@ function Reports() {
                                     <tbody>
 
                                         {productReport.map(
-                                            (product) => (
+                                            (
+                                                product
+                                            ) => (
 
                                                 <tr
                                                     key={
@@ -821,29 +907,23 @@ function Reports() {
                                                     </td>
 
                                                     <td>
-
                                                         {
                                                             product.sku
                                                         }
-
                                                     </td>
 
                                                     <td>
-
                                                         {
                                                             product.quantity_sold
                                                         }
-
                                                     </td>
 
                                                     <td>
 
                                                         <strong>
                                                             Rs.{" "}
-                                                            {Number(
+                                                            {formatCurrency(
                                                                 product.total_revenue
-                                                            ).toFixed(
-                                                                2
                                                             )}
                                                         </strong>
 
@@ -869,9 +949,7 @@ function Reports() {
             )}
 
         </div>
-
     );
-
 }
 
 export default Reports;
