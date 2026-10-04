@@ -8,11 +8,12 @@ const roleMiddleware = require("../middleware/roleMiddleware");
 
 router.use(authMiddleware);
 
-// =========================
-// CREATE SALE
-// =========================
 
-router.post("/", (req, res) => {
+// =====================================================
+// CREATE SALE
+// =====================================================
+
+router.post("/", async (req, res) => {
 
     const {
         items,
@@ -21,133 +22,286 @@ router.post("/", (req, res) => {
 
     const userId = req.user.id;
 
-    if (!items || items.length === 0) {
+    // =================================================
+    // VALIDATION
+    // =================================================
+
+    if (!items || !Array.isArray(items) || items.length === 0) {
+
         return res.status(400).json({
             message: "Cart is empty"
         });
+
     }
 
     if (!payment_method) {
+
         return res.status(400).json({
             message: "Payment method is required"
         });
+
     }
 
-    let checkedItems = 0;
-    let stockError = false;
-    let responseSent = false;
+    try {
 
-    items.forEach((item) => {
+        // =================================================
+        // START TRANSACTION
+        // =================================================
 
-        const stockSql = `
-            SELECT name, stock_quantity
-            FROM products
-            WHERE id = ?
-        `;
+        await new Promise((resolve, reject) => {
 
-        db.query(
-            stockSql,
-            [item.product_id],
-            (err, results) => {
+            db.beginTransaction((err) => {
 
                 if (err) {
-                    console.error(
-                        "Stock check error:",
-                        err.message
-                    );
-
-                    stockError = true;
-                    return finishStockCheck();
-                }
-
-                if (results.length === 0) {
-                    stockError = true;
-                    return finishStockCheck();
-                }
-
-                const product = results[0];
-
-                if (
-                    Number(item.quantity) >
-                    Number(product.stock_quantity)
-                ) {
-                    stockError = true;
-
-                    if (!responseSent) {
-                        responseSent = true;
-
-                        return res.status(400).json({
-                            message:
-                                `Not enough stock for ${product.name}. ` +
-                                `Available stock: ${product.stock_quantity}`
-                        });
-                    }
-
+                    reject(err);
                     return;
                 }
 
-                finishStockCheck();
-            }
-        );
+                resolve();
 
-        function finishStockCheck() {
-
-            checkedItems++;
-
-            if (
-                checkedItems === items.length &&
-                !stockError &&
-                !responseSent
-            ) {
-                createSale();
-            }
-        }
-    });
-
-    // =========================
-    // CREATE SALE
-    // =========================
-
-    function createSale() {
-
-        let totalAmount = 0;
-
-        items.forEach((item) => {
-
-            totalAmount +=
-                Number(item.price) *
-                Number(item.quantity);
+            });
 
         });
 
-        const saleSql = `
-            INSERT INTO sales
-            (user_id, total_amount, payment_method)
-            VALUES (?, ?, ?)
-        `;
 
-        db.query(
-            saleSql,
-            [
-                userId,
-                totalAmount,
-                payment_method
-            ],
-            (err, saleResult) => {
+        // =================================================
+        // CHECK STOCK
+        // =================================================
 
-                if (err) {
-                    return res.status(500).json({
-                        message: "Failed to create sale",
-                        error: err.message
-                    });
+        for (const item of items) {
+
+            const productResult = await new Promise(
+                (resolve, reject) => {
+
+                    const stockSql = `
+                        SELECT
+                            id,
+                            name,
+                            price,
+                            stock_quantity
+                        FROM products
+                        WHERE id = ?
+                        FOR UPDATE
+                    `;
+
+                    db.query(
+                        stockSql,
+                        [item.product_id],
+                        (err, results) => {
+
+                            if (err) {
+                                reject(err);
+                                return;
+                            }
+
+                            resolve(results);
+
+                        }
+                    );
+
                 }
+            );
 
-                const saleId =
-                    saleResult.insertId;
 
-                // =========================
-                // SAVE SALE ITEMS
-                // =========================
+            // Product does not exist
+
+            if (productResult.length === 0) {
+
+                throw new Error(
+                    `Product not found: ${item.product_id}`
+                );
+
+            }
+
+
+            const product =
+                productResult[0];
+
+
+            // =================================================
+            // VALIDATE QUANTITY
+            // =================================================
+
+            const quantity =
+                Number(item.quantity);
+
+
+            if (
+                !Number.isInteger(quantity) ||
+                quantity <= 0
+            ) {
+
+                throw new Error(
+                    `Invalid quantity for ${product.name}`
+                );
+
+            }
+
+
+            // =================================================
+            // CHECK STOCK
+            // =================================================
+
+            if (
+                quantity >
+                Number(product.stock_quantity)
+            ) {
+
+                throw new Error(
+                    `Not enough stock for ${product.name}. ` +
+                    `Available stock: ${product.stock_quantity}`
+                );
+
+            }
+
+        }
+
+
+        // =================================================
+        // CALCULATE TOTAL
+        // =================================================
+
+        let totalAmount = 0;
+
+
+        items.forEach((item) => {
+
+            const quantity =
+                Number(item.quantity);
+
+            const price =
+                Number(item.price);
+
+            totalAmount +=
+                price * quantity;
+
+        });
+
+
+        // =================================================
+        // CREATE SALE
+        // =================================================
+
+        const saleResult = await new Promise(
+            (resolve, reject) => {
+
+                const saleSql = `
+                    INSERT INTO sales
+                    (
+                        user_id,
+                        total_amount,
+                        payment_method
+                    )
+                    VALUES (?, ?, ?)
+                `;
+
+
+                db.query(
+                    saleSql,
+                    [
+                        userId,
+                        totalAmount,
+                        payment_method
+                    ],
+                    (err, result) => {
+
+                        if (err) {
+                            reject(err);
+                            return;
+                        }
+
+                        resolve(result);
+
+                    }
+                );
+
+            }
+        );
+
+
+        const saleId =
+            saleResult.insertId;
+
+
+        // =================================================
+        // CREATE INVOICE NUMBER
+        // =================================================
+
+        const invoiceNumber =
+            `INV-${new Date()
+                .toISOString()
+                .slice(0, 10)
+                .replace(/-/g, "")}-${String(
+                    saleId
+                ).padStart(4, "0")}`;
+
+
+        // =================================================
+        // SAVE INVOICE NUMBER
+        // =================================================
+
+        await new Promise(
+            (resolve, reject) => {
+
+                const invoiceSql = `
+                    UPDATE sales
+                    SET invoice_number = ?
+                    WHERE id = ?
+                `;
+
+
+                db.query(
+                    invoiceSql,
+                    [
+                        invoiceNumber,
+                        saleId
+                    ],
+                    (err) => {
+
+                        if (err) {
+                            reject(err);
+                            return;
+                        }
+
+                        resolve();
+
+                    }
+                );
+
+            }
+        );
+
+
+        // =================================================
+        // CREATE SALE ITEMS
+        // =================================================
+
+        const itemValues =
+            items.map((item) => {
+
+                const quantity =
+                    Number(item.quantity);
+
+                const price =
+                    Number(item.price);
+
+                const subtotal =
+                    price * quantity;
+
+
+                return [
+                    saleId,
+                    item.product_id,
+                    quantity,
+                    price,
+                    subtotal
+                ];
+
+            });
+
+
+        await new Promise(
+            (resolve, reject) => {
 
                 const itemSql = `
                     INSERT INTO sale_items
@@ -161,21 +315,6 @@ router.post("/", (req, res) => {
                     VALUES ?
                 `;
 
-                const itemValues =
-                    items.map((item) => [
-
-                        saleId,
-
-                        item.product_id,
-
-                        item.quantity,
-
-                        item.price,
-
-                        Number(item.price) *
-                        Number(item.quantity)
-
-                    ]);
 
                 db.query(
                     itemSql,
@@ -183,84 +322,11 @@ router.post("/", (req, res) => {
                     (err) => {
 
                         if (err) {
-                            return res.status(500).json({
-                                message:
-                                    "Failed to save sale items",
-                                error: err.message
-                            });
+                            reject(err);
+                            return;
                         }
 
-                        // =========================
-                        // REDUCE STOCK
-                        // =========================
-
-                        let completedUpdates = 0;
-                        let stockUpdateError = false;
-
-                        items.forEach((item) => {
-
-                            const updateStockSql = `
-                                UPDATE products
-                                SET stock_quantity =
-                                    stock_quantity - ?
-                                WHERE id = ?
-                            `;
-
-                            db.query(
-                                updateStockSql,
-                                [
-                                    Number(item.quantity),
-                                    item.product_id
-                                ],
-                                (err) => {
-
-                                    if (err) {
-
-                                        console.error(
-                                            "Stock update error:",
-                                            err.message
-                                        );
-
-                                        stockUpdateError =
-                                            true;
-                                    }
-
-                                    completedUpdates++;
-
-                                    if (
-                                        completedUpdates ===
-                                        items.length
-                                    ) {
-
-                                        if (
-                                            stockUpdateError
-                                        ) {
-
-                                            return res.status(500).json({
-                                                message:
-                                                    "Sale created but stock update failed"
-                                            });
-                                        }
-
-                                        const invoiceNumber =
-    `INV-${new Date()
-        .toISOString()
-        .slice(0, 10)
-        .replace(/-/g, "")}-${String(saleId).padStart(4, "0")}`;
-
-res.status(201).json({
-    message: "Sale completed successfully",
-    saleId: saleId,
-    invoiceNumber: invoiceNumber,
-    totalAmount: totalAmount
-});
-
-                                    }
-
-                                }
-                            );
-
-                        });
+                        resolve();
 
                     }
                 );
@@ -268,24 +334,235 @@ res.status(201).json({
             }
         );
 
+
+        // =================================================
+        // REDUCE PRODUCT STOCK
+        // =================================================
+
+        for (const item of items) {
+
+            const quantity =
+                Number(item.quantity);
+
+
+            await new Promise(
+                (resolve, reject) => {
+
+                    const updateStockSql = `
+                        UPDATE products
+                        SET stock_quantity =
+                            stock_quantity - ?
+                        WHERE id = ?
+                    `;
+
+
+                    db.query(
+                        updateStockSql,
+                        [
+                            quantity,
+                            item.product_id
+                        ],
+                        (err, result) => {
+
+                            if (err) {
+                                reject(err);
+                                return;
+                            }
+
+
+                            // Extra safety check
+
+                            if (
+                                result.affectedRows === 0
+                            ) {
+
+                                reject(
+                                    new Error(
+                                        `Failed to update stock for product ${item.product_id}`
+                                    )
+                                );
+
+                                return;
+                            }
+
+
+                            resolve();
+
+                        }
+                    );
+
+                }
+            );
+
+        }
+
+
+        // =================================================
+        // COMMIT TRANSACTION
+        // =================================================
+
+        await new Promise(
+            (resolve, reject) => {
+
+                db.commit((err) => {
+
+                    if (err) {
+                        reject(err);
+                        return;
+                    }
+
+                    resolve();
+
+                });
+
+            }
+        );
+
+
+        // =================================================
+        // SUCCESS RESPONSE
+        // =================================================
+
+        return res.status(201).json({
+
+            message:
+                "Sale completed successfully",
+
+            saleId:
+                saleId,
+
+            invoiceNumber:
+                invoiceNumber,
+
+            totalAmount:
+                totalAmount
+
+        });
+
+
+    } catch (error) {
+
+        console.error(
+            "Sale transaction error:",
+            error.message
+        );
+
+
+        // =================================================
+        // ROLLBACK TRANSACTION
+        // =================================================
+
+        db.rollback((rollbackError) => {
+
+            if (rollbackError) {
+
+                console.error(
+                    "Rollback error:",
+                    rollbackError.message
+                );
+
+            } else {
+
+                console.log(
+                    "Transaction rolled back"
+                );
+
+            }
+
+        });
+
+
+        // =================================================
+        // STOCK ERROR
+        // =================================================
+
+        if (
+            error.message.startsWith(
+                "Not enough stock"
+            )
+        ) {
+
+            return res.status(400).json({
+                message: error.message
+            });
+
+        }
+
+
+        // =================================================
+        // PRODUCT NOT FOUND
+        // =================================================
+
+        if (
+            error.message.startsWith(
+                "Product not found"
+            )
+        ) {
+
+            return res.status(404).json({
+                message: error.message
+            });
+
+        }
+
+
+        // =================================================
+        // INVALID QUANTITY
+        // =================================================
+
+        if (
+            error.message.startsWith(
+                "Invalid quantity"
+            )
+        ) {
+
+            return res.status(400).json({
+                message: error.message
+            });
+
+        }
+
+
+        // =================================================
+        // GENERAL ERROR
+        // =================================================
+
+        return res.status(500).json({
+
+            message:
+                "Failed to complete sale",
+
+            error:
+                error.message
+
+        });
+
     }
 
 });
 
-// =========================
+
+// =====================================================
 // GET ALL SALES
-// =========================
+// =====================================================
 
 router.get("/", (req, res) => {
 
     const sql = `
         SELECT
+
             sales.id,
+
+            sales.invoice_number,
+
             sales.total_amount,
+
             sales.payment_method,
+
             sales.created_at,
 
             users.name AS cashier_name,
+
             users.email AS cashier_email
 
         FROM sales
@@ -296,16 +573,25 @@ router.get("/", (req, res) => {
         ORDER BY sales.id DESC
     `;
 
+
     db.query(
         sql,
         (err, results) => {
 
             if (err) {
+
                 return res.status(500).json({
-                    message: "Failed to fetch sales",
-                    error: err.message
+
+                    message:
+                        "Failed to fetch sales",
+
+                    error:
+                        err.message
+
                 });
+
             }
+
 
             res.json(results);
 
@@ -314,9 +600,10 @@ router.get("/", (req, res) => {
 
 });
 
-// =========================
+
+// =====================================================
 // ADMIN SALES REPORT
-// =========================
+// =====================================================
 
 router.get(
     "/report",
@@ -329,10 +616,13 @@ router.get(
             payment_method
         } = req.query;
 
+
         let sql = `
             SELECT
 
                 sales.id,
+
+                sales.invoice_number,
 
                 sales.total_amount,
 
@@ -354,11 +644,13 @@ router.get(
             WHERE 1 = 1
         `;
 
+
         const values = [];
 
-        // =========================
+
+        // =================================================
         // FILTER BY DATE
-        // =========================
+        // =================================================
 
         if (date) {
 
@@ -370,9 +662,10 @@ router.get(
 
         }
 
-        // =========================
+
+        // =================================================
         // FILTER BY CASHIER
-        // =========================
+        // =================================================
 
         if (user_id) {
 
@@ -384,9 +677,10 @@ router.get(
 
         }
 
-        // =========================
+
+        // =================================================
         // FILTER BY PAYMENT METHOD
-        // =========================
+        // =================================================
 
         if (payment_method) {
 
@@ -398,9 +692,11 @@ router.get(
 
         }
 
+
         sql += `
             ORDER BY sales.created_at DESC
         `;
+
 
         db.query(
             sql,
@@ -414,21 +710,30 @@ router.get(
                         err.message
                     );
 
+
                     return res.status(500).json({
+
                         message:
                             "Failed to generate sales report",
-                        error: err.message
+
+                        error:
+                            err.message
+
                     });
 
                 }
 
-                // =========================
+
+                // =================================================
                 // CALCULATE SUMMARY
-                // =========================
+                // =================================================
 
                 let totalSales = 0;
+
                 let cashSales = 0;
+
                 let cardSales = 0;
+
 
                 results.forEach((sale) => {
 
@@ -437,31 +742,45 @@ router.get(
                             sale.total_amount
                         );
 
+
                     totalSales += amount;
+
 
                     if (
                         sale.payment_method
                             ?.toLowerCase() === "cash"
                     ) {
+
                         cashSales += amount;
+
                     }
+
 
                     if (
                         sale.payment_method
                             ?.toLowerCase() === "card"
                     ) {
+
                         cardSales += amount;
+
                     }
 
                 });
 
+
+                // =================================================
+                // REPORT RESPONSE
+                // =================================================
+
                 res.json({
 
                     date:
-                        date || "All Dates",
+                        date ||
+                        "All Dates",
 
                     user_id:
-                        user_id || "All Cashiers",
+                        user_id ||
+                        "All Cashiers",
 
                     payment_method:
                         payment_method ||
@@ -490,16 +809,22 @@ router.get(
     }
 );
 
-// =========================
+
+// =====================================================
 // DASHBOARD STATISTICS
-// =========================
+// =====================================================
+
 router.get(
     "/dashboard",
     (req, res) => {
 
         const sql = `
             SELECT
-                COALESCE(SUM(total_amount), 0) AS totalSales,
+
+                COALESCE(
+                    SUM(total_amount),
+                    0
+                ) AS totalSales,
 
                 COALESCE(
                     SUM(
@@ -539,6 +864,7 @@ router.get(
             FROM sales
         `;
 
+
         db.query(
             sql,
             (err, salesResult) => {
@@ -550,17 +876,30 @@ router.get(
                         err
                     );
 
+
                     return res.status(500).json({
+
                         message:
                             "Failed to load sales dashboard",
-                        error: err.message
+
+                        error:
+                            err.message
+
                     });
+
                 }
 
+
+                // =================================================
+                // TOTAL PRODUCTS
+                // =================================================
+
                 const productSql = `
-                    SELECT COUNT(*) AS totalProducts
+                    SELECT
+                        COUNT(*) AS totalProducts
                     FROM products
                 `;
+
 
                 db.query(
                     productSql,
@@ -569,18 +908,29 @@ router.get(
                         if (productErr) {
 
                             return res.status(500).json({
+
                                 message:
                                     "Failed to load product count",
+
                                 error:
                                     productErr.message
+
                             });
+
                         }
 
+
+                        // =================================================
+                        // LOW STOCK PRODUCTS
+                        // =================================================
+
                         const lowStockSql = `
-                            SELECT COUNT(*) AS lowStockProducts
+                            SELECT
+                                COUNT(*) AS lowStockProducts
                             FROM products
                             WHERE stock_quantity <= 5
                         `;
+
 
                         db.query(
                             lowStockSql,
@@ -592,14 +942,24 @@ router.get(
                                 if (lowStockErr) {
 
                                     return res.status(500).json({
+
                                         message:
                                             "Failed to load low stock count",
+
                                         error:
                                             lowStockErr.message
+
                                     });
+
                                 }
 
+
+                                // =================================================
+                                // DASHBOARD RESPONSE
+                                // =================================================
+
                                 res.json({
+
                                     totalSales:
                                         salesResult[0]
                                             .totalSales,
@@ -627,215 +987,275 @@ router.get(
                                     lowStockProducts:
                                         lowStockResult[0]
                                             .lowStockProducts
+
                                 });
+
                             }
                         );
+
                     }
                 );
+
             }
         );
+
     }
 );
 
-// =========================
+
+// =====================================================
 // PRODUCT SALES REPORT
-// =========================
+// =====================================================
 
-router.get("/product-report", (req, res) => {
+router.get(
+    "/product-report",
+    (req, res) => {
 
-    const { date } = req.query;
+        const {
+            date
+        } = req.query;
 
-    let sql = `
-        SELECT
 
-            products.id,
+        let sql = `
+            SELECT
 
-            products.name,
+                products.id,
 
-            products.sku,
+                products.name,
 
-            SUM(
-                sale_items.quantity
-            ) AS quantity_sold,
+                products.sku,
 
-            SUM(
-                sale_items.subtotal
-            ) AS total_revenue
+                SUM(
+                    sale_items.quantity
+                ) AS quantity_sold,
 
-        FROM sale_items
+                SUM(
+                    sale_items.subtotal
+                ) AS total_revenue
 
-        INNER JOIN sales
-            ON sale_items.sale_id = sales.id
+            FROM sale_items
 
-        INNER JOIN products
-            ON sale_items.product_id = products.id
-    `;
+            INNER JOIN sales
+                ON sale_items.sale_id = sales.id
 
-    const values = [];
-
-    if (date) {
-
-        sql += `
-            WHERE DATE(sales.created_at) = ?
+            INNER JOIN products
+                ON sale_items.product_id = products.id
         `;
 
-        values.push(date);
+
+        const values = [];
+
+
+        // =================================================
+        // FILTER BY DATE
+        // =================================================
+
+        if (date) {
+
+            sql += `
+                WHERE DATE(sales.created_at) = ?
+            `;
+
+            values.push(date);
+
+        }
+
+
+        // =================================================
+        // GROUP RESULTS
+        // =================================================
+
+        sql += `
+            GROUP BY
+                products.id,
+                products.name,
+                products.sku
+
+            ORDER BY
+                quantity_sold DESC
+        `;
+
+
+        db.query(
+            sql,
+            values,
+            (err, results) => {
+
+                if (err) {
+
+                    return res.status(500).json({
+
+                        message:
+                            "Failed to generate product sales report",
+
+                        error:
+                            err.message
+
+                    });
+
+                }
+
+
+                res.json(results);
+
+            }
+        );
 
     }
+);
 
-    sql += `
-        GROUP BY
-            products.id,
-            products.name,
-            products.sku
 
-        ORDER BY
-            quantity_sold DESC
-    `;
-
-    db.query(
-        sql,
-        values,
-        (err, results) => {
-
-            if (err) {
-
-                return res.status(500).json({
-                    message:
-                        "Failed to generate product sales report",
-                    error: err.message
-                });
-
-            }
-
-            res.json(results);
-
-        }
-    );
-
-});
-
-// =========================
+// =====================================================
 // DAILY SALES REPORT
-// =========================
+// =====================================================
 
-router.get("/daily-report", (req, res) => {
+router.get(
+    "/daily-report",
+    (req, res) => {
 
-    const sql = `
-        SELECT
+        const sql = `
+            SELECT
 
-            DATE(created_at) AS sale_date,
+                DATE(created_at) AS sale_date,
 
-            COUNT(*) AS total_transactions,
+                COUNT(*) AS total_transactions,
 
-            COALESCE(
-                SUM(total_amount),
-                0
-            ) AS total_sales
+                COALESCE(
+                    SUM(total_amount),
+                    0
+                ) AS total_sales
 
-        FROM sales
+            FROM sales
 
-        GROUP BY DATE(created_at)
+            GROUP BY
+                DATE(created_at)
 
-        ORDER BY sale_date ASC
-    `;
+            ORDER BY
+                sale_date ASC
+        `;
 
-    db.query(
-        sql,
-        (err, results) => {
 
-            if (err) {
+        db.query(
+            sql,
+            (err, results) => {
 
-                return res.status(500).json({
-                    message:
-                        "Failed to generate daily sales report",
-                    error: err.message
-                });
+                if (err) {
+
+                    return res.status(500).json({
+
+                        message:
+                            "Failed to generate daily sales report",
+
+                        error:
+                            err.message
+
+                    });
+
+                }
+
+
+                res.json(results);
 
             }
+        );
 
-            res.json(results);
+    }
+);
 
-        }
-    );
 
-});
-
-// =========================
+// =====================================================
 // GET SALE DETAILS
-// =========================
+// =====================================================
 
-router.get("/:id", (req, res) => {
+router.get(
+    "/:id",
+    (req, res) => {
 
-    const saleId = req.params.id;
+        const saleId =
+            req.params.id;
 
-    const sql = `
-        SELECT
 
-            sales.id AS sale_id,
+        const sql = `
+            SELECT
 
-            sales.total_amount,
+                sales.id AS sale_id,
 
-            sales.payment_method,
+                sales.invoice_number,
 
-            sales.created_at,
+                sales.total_amount,
 
-            users.name AS cashier_name,
+                sales.payment_method,
 
-            users.email AS cashier_email,
+                sales.created_at,
 
-            sale_items.product_id,
+                users.name AS cashier_name,
 
-            products.name AS product_name,
+                users.email AS cashier_email,
 
-            sale_items.quantity,
+                sale_items.product_id,
 
-            sale_items.price,
+                products.name AS product_name,
 
-            sale_items.subtotal
+                sale_items.quantity,
 
-        FROM sales
+                sale_items.price,
 
-        INNER JOIN sale_items
-            ON sales.id = sale_items.sale_id
+                sale_items.subtotal
 
-        INNER JOIN products
-            ON sale_items.product_id = products.id
+            FROM sales
 
-        LEFT JOIN users
-            ON sales.user_id = users.id
+            INNER JOIN sale_items
+                ON sales.id = sale_items.sale_id
 
-        WHERE sales.id = ?
-    `;
+            INNER JOIN products
+                ON sale_items.product_id = products.id
 
-    db.query(
-        sql,
-        [saleId],
-        (err, results) => {
+            LEFT JOIN users
+                ON sales.user_id = users.id
 
-            if (err) {
+            WHERE sales.id = ?
+        `;
 
-                return res.status(500).json({
-                    message:
-                        "Failed to fetch sale details",
-                    error: err.message
-                });
+
+        db.query(
+            sql,
+            [saleId],
+            (err, results) => {
+
+                if (err) {
+
+                    return res.status(500).json({
+
+                        message:
+                            "Failed to fetch sale details",
+
+                        error:
+                            err.message
+
+                    });
+
+                }
+
+
+                if (results.length === 0) {
+
+                    return res.status(404).json({
+
+                        message:
+                            "Sale not found"
+
+                    });
+
+                }
+
+
+                res.json(results);
 
             }
+        );
 
-            if (results.length === 0) {
+    }
+);
 
-                return res.status(404).json({
-                    message: "Sale not found"
-                });
-
-            }
-
-            res.json(results);
-
-        }
-    );
-
-});
 
 module.exports = router;
