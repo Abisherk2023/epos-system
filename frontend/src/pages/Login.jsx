@@ -1,5 +1,5 @@
 import { useState } from "react";
-import axios from "axios";
+import api from "../api/axios";
 
 function Login({ onLogin }) {
     const [email, setEmail] = useState("");
@@ -11,34 +11,65 @@ function Login({ onLogin }) {
         e.preventDefault();
 
         setError("");
+
+        const trimmedEmail = email.trim();
+
+        if (!trimmedEmail) {
+            setError("Please enter your email.");
+            return;
+        }
+
+        if (!password) {
+            setError("Please enter your password.");
+            return;
+        }
+
         setLoading(true);
 
         try {
-            const response = await axios.post(
-                "http://localhost:5000/api/auth/login",
-                {
-                    email,
-                    password
-                }
-            );
+            const response = await api.post("/auth/login", {
+                email: trimmedEmail,
+                password
+            });
 
-            localStorage.setItem(
-                "token",
-                response.data.token
-            );
+            const token = response.data?.token;
+            const loggedInUser = response.data?.user;
 
+            if (!token || !loggedInUser) {
+                setError("Invalid login response from server.");
+                return;
+            }
+
+            // Save authentication information
+            localStorage.setItem("token", token);
             localStorage.setItem(
                 "user",
-                JSON.stringify(response.data.user)
+                JSON.stringify(loggedInUser)
             );
 
-            onLogin(response.data.user);
+            // Continue to the application
+            onLogin(loggedInUser);
 
         } catch (error) {
-            setError(
-                error.response?.data?.message ||
-                "Login failed"
-            );
+            console.error("Login error:", error);
+
+            if (error.response?.status === 401) {
+                setError(
+                    error.response?.data?.message ||
+                    "Invalid email or password."
+                );
+            } else if (error.response?.status === 403) {
+                setError(
+                    error.response?.data?.message ||
+                    "You are not allowed to access the system."
+                );
+            } else if (error.response?.data?.message) {
+                setError(error.response.data.message);
+            } else {
+                setError(
+                    "Unable to connect to the server. Please try again."
+                );
+            }
         } finally {
             setLoading(false);
         }
@@ -61,13 +92,14 @@ function Login({ onLogin }) {
 
                 {error && (
                     <div className="login-error">
-                        {error}
+                        ❌ {error}
                     </div>
                 )}
 
                 <form onSubmit={handleLogin}>
 
                     <div className="login-field">
+
                         <label htmlFor="email">
                             Email
                         </label>
@@ -77,15 +109,20 @@ function Login({ onLogin }) {
                             name="email"
                             type="email"
                             value={email}
-                            onChange={(e) =>
-                                setEmail(e.target.value)
-                            }
+                            onChange={(e) => {
+                                setEmail(e.target.value);
+                                setError("");
+                            }}
                             placeholder="Enter your email"
+                            autoComplete="email"
+                            disabled={loading}
                             required
                         />
+
                     </div>
 
                     <div className="login-field">
+
                         <label htmlFor="password">
                             Password
                         </label>
@@ -95,12 +132,16 @@ function Login({ onLogin }) {
                             name="password"
                             type="password"
                             value={password}
-                            onChange={(e) =>
-                                setPassword(e.target.value)
-                            }
+                            onChange={(e) => {
+                                setPassword(e.target.value);
+                                setError("");
+                            }}
                             placeholder="Enter your password"
+                            autoComplete="current-password"
+                            disabled={loading}
                             required
                         />
+
                     </div>
 
                     <button
@@ -109,7 +150,7 @@ function Login({ onLogin }) {
                         disabled={loading}
                     >
                         {loading
-                            ? "Signing in..."
+                            ? "⏳ Signing in..."
                             : "🔐 Login"}
                     </button>
 
