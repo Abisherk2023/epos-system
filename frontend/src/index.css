@@ -3931,3 +3931,77 @@ tr:hover {
         width: 100%;
     }
 }
+/* =========================
+   POS QUICK CASH BUTTONS
+========================= */
+
+.pos-quick-cash {
+    display: flex;
+    gap: 10px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+}
+
+.pos-quick-cash button {
+    flex: 1;
+    min-width: 120px;
+    padding: 10px 14px;
+
+    border: 1px solid #f9a8d4;
+    border-radius: 8px;
+
+    background: #fdf2f8;
+    color: #be185d;
+
+    font-weight: 700;
+    cursor: pointer;
+
+    transition: 0.2s ease;
+}
+
+.pos-quick-cash button:hover {
+    background: #fce7f3;
+    border-color: #ec4899;
+}
+
+.pos-quick-cash button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+
+/* =========================
+   POS CHECKOUT PROCESSING
+========================= */
+
+.pos-checkout-disabled {
+    cursor: not-allowed;
+    opacity: 0.65;
+}
+
+
+/* =========================
+   PAYMENT BUTTON DISABLED
+========================= */
+
+.pos-payment-methods button:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+
+/* =========================
+   MOBILE QUICK CASH
+========================= */
+
+@media (max-width: 600px) {
+
+    .pos-quick-cash {
+        flex-direction: column;
+    }
+
+    .pos-quick-cash button {
+        width: 100%;
+    }
+
+}

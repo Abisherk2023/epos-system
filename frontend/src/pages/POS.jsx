@@ -78,6 +78,10 @@ function POS() {
     // =========================
 
     const addToCart = () => {
+        if (checkoutLoading) {
+            return;
+        }
+
         if (!selectedProduct) {
             alert("Please select a product");
             return;
@@ -88,6 +92,7 @@ function POS() {
         );
 
         if (!product) {
+            alert("Product not found");
             return;
         }
 
@@ -133,11 +138,13 @@ function POS() {
                         ? {
                               ...item,
                               quantity:
-                                  item.quantity +
+                                  Number(item.quantity) +
                                   requestedQuantity,
                               subtotal:
-                                  (item.quantity +
-                                      requestedQuantity) *
+                                  (
+                                      Number(item.quantity) +
+                                      requestedQuantity
+                                  ) *
                                   Number(item.price)
                           }
                         : item
@@ -167,6 +174,10 @@ function POS() {
     // =========================
 
     const increaseQuantity = (productId) => {
+        if (checkoutLoading) {
+            return;
+        }
+
         const cartItem = cart.find(
             (item) =>
                 item.product_id === productId
@@ -200,7 +211,9 @@ function POS() {
                           quantity:
                               Number(item.quantity) + 1,
                           subtotal:
-                              (Number(item.quantity) + 1) *
+                              (
+                                  Number(item.quantity) + 1
+                              ) *
                               Number(item.price)
                       }
                     : item
@@ -213,6 +226,10 @@ function POS() {
     // =========================
 
     const decreaseQuantity = (productId) => {
+        if (checkoutLoading) {
+            return;
+        }
+
         const cartItem = cart.find(
             (item) =>
                 item.product_id === productId
@@ -235,7 +252,9 @@ function POS() {
                           quantity:
                               Number(item.quantity) - 1,
                           subtotal:
-                              (Number(item.quantity) - 1) *
+                              (
+                                  Number(item.quantity) - 1
+                              ) *
                               Number(item.price)
                       }
                     : item
@@ -248,6 +267,10 @@ function POS() {
     // =========================
 
     const removeFromCart = (productId) => {
+        if (checkoutLoading) {
+            return;
+        }
+
         setCart(
             cart.filter(
                 (item) =>
@@ -430,6 +453,10 @@ function POS() {
     // =========================
 
     const selectProductFromCard = (product) => {
+        if (checkoutLoading) {
+            return;
+        }
+
         if (
             Number(product.stock_quantity) <= 0
         ) {
@@ -474,9 +501,11 @@ function POS() {
                                       item.quantity
                                   ) + 1,
                               subtotal:
-                                  (Number(
-                                      item.quantity
-                                  ) + 1) *
+                                  (
+                                      Number(
+                                          item.quantity
+                                      ) + 1
+                                  ) *
                                   Number(item.price)
                           }
                         : item
@@ -494,6 +523,41 @@ function POS() {
                 }
             ]);
         }
+    };
+
+    // =========================
+    // CLEAR CART
+    // =========================
+
+    const handleClearCart = () => {
+        if (checkoutLoading) {
+            return;
+        }
+
+        if (cart.length === 0) {
+            return;
+        }
+
+        const confirmed = window.confirm(
+            "Are you sure you want to clear the cart?"
+        );
+
+        if (confirmed) {
+            setCart([]);
+            setAmountPaid("");
+        }
+    };
+
+    // =========================
+    // QUICK CASH
+    // =========================
+
+    const setQuickCashAmount = (amount) => {
+        if (checkoutLoading || total <= 0) {
+            return;
+        }
+
+        setAmountPaid(String(amount));
     };
 
     return (
@@ -526,7 +590,10 @@ function POS() {
                         type="button"
                         className="pos-refresh-button"
                         onClick={fetchProducts}
-                        disabled={loadingProducts}
+                        disabled={
+                            loadingProducts ||
+                            checkoutLoading
+                        }
                     >
                         {loadingProducts
                             ? "⏳ Refreshing..."
@@ -572,6 +639,7 @@ function POS() {
                                     e.target.value
                                 )
                             }
+                            disabled={checkoutLoading}
                         />
 
                         {productSearch && (
@@ -580,6 +648,9 @@ function POS() {
                                 className="pos-clear-search"
                                 onClick={() =>
                                     setProductSearch("")
+                                }
+                                disabled={
+                                    checkoutLoading
                                 }
                             >
                                 ✕
@@ -686,7 +757,8 @@ function POS() {
                                         disabled={
                                             Number(
                                                 product.stock_quantity
-                                            ) <= 0
+                                            ) <= 0 ||
+                                            checkoutLoading
                                         }
                                         className={
                                             Number(
@@ -704,7 +776,6 @@ function POS() {
                                     </button>
 
                                 </div>
-
                             )
                         )
 
@@ -731,6 +802,7 @@ function POS() {
                                     e.target.value
                                 )
                             }
+                            disabled={checkoutLoading}
                         >
 
                             <option value="">
@@ -788,6 +860,7 @@ function POS() {
                                     e.target.value
                                 )
                             }
+                            disabled={checkoutLoading}
                         />
 
                     </div>
@@ -798,6 +871,7 @@ function POS() {
                             type="button"
                             onClick={addToCart}
                             className="pos-manual-add-button"
+                            disabled={checkoutLoading}
                         >
                             ➕ Add to Cart
                         </button>
@@ -824,18 +898,11 @@ function POS() {
 
                         <button
                             type="button"
-                            onClick={() => {
-
-                                if (
-                                    window.confirm(
-                                        "Are you sure you want to clear the cart?"
-                                    )
-                                ) {
-                                    setCart([]);
-                                }
-
-                            }}
+                            onClick={handleClearCart}
                             className="pos-clear-button"
+                            disabled={
+                                checkoutLoading
+                            }
                         >
                             🗑️ Clear Cart
                         </button>
@@ -902,6 +969,9 @@ function POS() {
                                                 )
                                             }
                                             className="pos-minus-button"
+                                            disabled={
+                                                checkoutLoading
+                                            }
                                         >
                                             −
                                         </button>
@@ -920,6 +990,9 @@ function POS() {
                                                 )
                                             }
                                             className="pos-plus-button"
+                                            disabled={
+                                                checkoutLoading
+                                            }
                                         >
                                             +
                                         </button>
@@ -949,12 +1022,14 @@ function POS() {
                                             )
                                         }
                                         className="pos-remove-button"
+                                        disabled={
+                                            checkoutLoading
+                                        }
                                     >
                                         🗑️ Remove
                                     </button>
 
                                 </div>
-
                             )
                         )}
 
@@ -1010,7 +1085,8 @@ function POS() {
                             setPaymentMethod("cash")
                         }
                         disabled={
-                            cart.length === 0
+                            cart.length === 0 ||
+                            checkoutLoading
                         }
                         className={
                             paymentMethod === "cash"
@@ -1028,7 +1104,8 @@ function POS() {
                             setAmountPaid("");
                         }}
                         disabled={
-                            cart.length === 0
+                            cart.length === 0 ||
+                            checkoutLoading
                         }
                         className={
                             paymentMethod === "card"
@@ -1063,7 +1140,63 @@ function POS() {
                                 )
                             }
                             placeholder="Enter amount received"
+                            disabled={
+                                checkoutLoading
+                            }
                         />
+
+                        <div className="pos-quick-cash">
+
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    setQuickCashAmount(
+                                        total.toFixed(2)
+                                    )
+                                }
+                                disabled={
+                                    total <= 0 ||
+                                    checkoutLoading
+                                }
+                            >
+                                Exact Amount
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    setQuickCashAmount(
+                                        Math.ceil(
+                                            total / 500
+                                        ) * 500
+                                    )
+                                }
+                                disabled={
+                                    total <= 0 ||
+                                    checkoutLoading
+                                }
+                            >
+                                Rs. 500
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    setQuickCashAmount(
+                                        Math.ceil(
+                                            total / 1000
+                                        ) * 1000
+                                    )
+                                }
+                                disabled={
+                                    total <= 0 ||
+                                    checkoutLoading
+                                }
+                            >
+                                Rs. 1000
+                            </button>
+
+                        </div>
 
                         <div className="pos-change">
 
@@ -1097,11 +1230,9 @@ function POS() {
                                     ⚠️ Insufficient
                                     payment
                                 </p>
-
                             )}
 
                     </div>
-
                 )}
 
                 {/* CARD */}
@@ -1124,7 +1255,6 @@ function POS() {
                         </p>
 
                     </div>
-
                 )}
 
                 {/* CHECKOUT */}
@@ -1370,7 +1500,10 @@ function POS() {
 
                                 <span>
                                     {completedSale.items.reduce(
-                                        (totalItems, item) =>
+                                        (
+                                            totalItems,
+                                            item
+                                        ) =>
                                             totalItems +
                                             Number(
                                                 item.quantity
@@ -1506,7 +1639,6 @@ function POS() {
                     </div>
 
                 </div>
-
             )}
 
         </div>
