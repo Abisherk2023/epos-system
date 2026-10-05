@@ -35,18 +35,21 @@ function Dashboard() {
 
     const [productSales, setProductSales] = useState([]);
 
-    const [lowStockProducts, setLowStockProducts] =
-        useState([]);
+    const [lowStockProducts, setLowStockProducts] = useState([]);
 
     const [loading, setLoading] = useState(true);
+
+    const [refreshing, setRefreshing] = useState(false);
 
     const [error, setError] = useState("");
 
 
+    /* =========================
+       LOAD DASHBOARD
+    ========================= */
+
     useEffect(() => {
-
         loadDashboard();
-
     }, []);
 
 
@@ -54,9 +57,13 @@ function Dashboard() {
 
         try {
 
-            setLoading(true);
-
             setError("");
+
+            if (loading) {
+                setLoading(true);
+            } else {
+                setRefreshing(true);
+            }
 
 
             const [
@@ -78,44 +85,48 @@ function Dashboard() {
 
 
             /* =========================
-               DASHBOARD DATA
+               DASHBOARD SUMMARY
             ========================= */
+
+            const dashboardData =
+                dashboardResponse.data || {};
+
 
             setDashboard({
 
                 totalSales:
                     Number(
-                        dashboardResponse.data.totalSales
+                        dashboardData.totalSales
                     ) || 0,
 
                 todaySales:
                     Number(
-                        dashboardResponse.data.todaySales
+                        dashboardData.todaySales
                     ) || 0,
 
                 totalTransactions:
                     Number(
-                        dashboardResponse.data.totalTransactions
+                        dashboardData.totalTransactions
                     ) || 0,
 
                 cashSales:
                     Number(
-                        dashboardResponse.data.cashSales
+                        dashboardData.cashSales
                     ) || 0,
 
                 cardSales:
                     Number(
-                        dashboardResponse.data.cardSales
+                        dashboardData.cardSales
                     ) || 0,
 
                 totalProducts:
                     Number(
-                        dashboardResponse.data.totalProducts
+                        dashboardData.totalProducts
                     ) || 0,
 
                 lowStockProducts:
                     Number(
-                        dashboardResponse.data.lowStockProducts
+                        dashboardData.lowStockProducts
                     ) || 0
 
             });
@@ -125,11 +136,21 @@ function Dashboard() {
                DAILY SALES
             ========================= */
 
+            const dailySalesData =
+                Array.isArray(
+                    dailySalesResponse.data
+                )
+                    ? dailySalesResponse.data
+                    : [];
+
+
             const formattedDailySales =
-                dailySalesResponse.data.map(
+                dailySalesData.map(
                     (item) => ({
 
-                        date: item.sale_date,
+                        date: formatChartDate(
+                            item.sale_date
+                        ),
 
                         sales:
                             Number(
@@ -154,13 +175,22 @@ function Dashboard() {
                PRODUCT SALES
             ========================= */
 
-            const formattedProductSales =
-                productSalesResponse.data
+            const productSalesData =
+                Array.isArray(
+                    productSalesResponse.data
+                )
+                    ? productSalesResponse.data
+                    : [];
 
+
+            const formattedProductSales =
+                productSalesData
                     .map(
                         (item) => ({
 
-                            name: item.name,
+                            name:
+                                item.name ||
+                                "Unknown Product",
 
                             quantity:
                                 Number(
@@ -174,13 +204,11 @@ function Dashboard() {
 
                         })
                     )
-
                     .sort(
                         (a, b) =>
                             b.quantity -
                             a.quantity
                     )
-
                     .slice(0, 10);
 
 
@@ -193,16 +221,22 @@ function Dashboard() {
                LOW STOCK PRODUCTS
             ========================= */
 
-            const lowStock =
-                productsResponse.data
+            const productsData =
+                Array.isArray(
+                    productsResponse.data
+                )
+                    ? productsResponse.data
+                    : [];
 
+
+            const lowStock =
+                productsData
                     .filter(
                         (product) =>
                             Number(
                                 product.stock_quantity
                             ) <= 5
                     )
-
                     .sort(
                         (a, b) =>
                             Number(
@@ -229,7 +263,7 @@ function Dashboard() {
 
             setError(
                 error.response?.data?.message ||
-                "Failed to load dashboard data"
+                "Failed to load dashboard data."
             );
 
 
@@ -237,7 +271,36 @@ function Dashboard() {
 
             setLoading(false);
 
+            setRefreshing(false);
+
         }
+
+    };
+
+
+    /* =========================
+       FORMAT DATE
+    ========================= */
+
+    const formatChartDate = (dateValue) => {
+
+        if (!dateValue) {
+            return "";
+        }
+
+        const date = new Date(dateValue);
+
+        if (Number.isNaN(date.getTime())) {
+            return String(dateValue);
+        }
+
+        return date.toLocaleDateString(
+            "en-GB",
+            {
+                day: "2-digit",
+                month: "short"
+            }
+        );
 
     };
 
@@ -262,6 +325,26 @@ function Dashboard() {
 
 
     /* =========================
+       AVERAGE TRANSACTION
+    ========================= */
+
+    const averageTransaction =
+        dashboard.totalTransactions > 0
+            ? dashboard.totalSales /
+              dashboard.totalTransactions
+            : 0;
+
+
+    /* =========================
+       TOTAL PAYMENT SALES
+    ========================= */
+
+    const totalPaymentSales =
+        dashboard.cashSales +
+        dashboard.cardSales;
+
+
+    /* =========================
        LOADING
     ========================= */
 
@@ -271,13 +354,28 @@ function Dashboard() {
 
             <div className="dashboard">
 
-                <h1>
-                    📊 Dashboard
-                </h1>
+                <div className="dashboard-header">
 
-                <p className="loading-message">
+                    <div>
+
+                        <h1>
+                            📊 Dashboard
+                        </h1>
+
+                        <p>
+                            EPOS System Overview
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <div className="loading-message">
+
                     Loading dashboard...
-                </p>
+
+                </div>
 
             </div>
 
@@ -313,8 +411,13 @@ function Dashboard() {
                 <button
                     className="primary-button"
                     onClick={loadDashboard}
+                    disabled={refreshing}
                 >
-                    🔄 Refresh
+
+                    {refreshing
+                        ? "⏳ Refreshing..."
+                        : "🔄 Refresh Dashboard"}
+
                 </button>
 
             </div>
@@ -328,7 +431,7 @@ function Dashboard() {
 
                 <div className="error-message">
 
-                    {error}
+                    ❌ {error}
 
                 </div>
 
@@ -346,20 +449,20 @@ function Dashboard() {
 
                 <div className="dashboard-card">
 
-                    <div className="dashboard-card-icon">
+                    <div className="card-icon">
                         💰
                     </div>
 
                     <div>
 
-                        <p>
+                        <h3>
                             Total Sales
-                        </p>
+                        </h3>
 
-                        <h2>
+                        <p className="card-amount">
                             Rs.{" "}
                             {dashboard.totalSales.toFixed(2)}
-                        </h2>
+                        </p>
 
                     </div>
 
@@ -370,20 +473,20 @@ function Dashboard() {
 
                 <div className="dashboard-card">
 
-                    <div className="dashboard-card-icon">
+                    <div className="card-icon">
                         📅
                     </div>
 
                     <div>
 
-                        <p>
+                        <h3>
                             Today's Sales
-                        </p>
+                        </h3>
 
-                        <h2>
+                        <p className="card-amount">
                             Rs.{" "}
                             {dashboard.todaySales.toFixed(2)}
-                        </h2>
+                        </p>
 
                     </div>
 
@@ -394,19 +497,43 @@ function Dashboard() {
 
                 <div className="dashboard-card">
 
-                    <div className="dashboard-card-icon">
+                    <div className="card-icon">
                         🧾
                     </div>
 
                     <div>
 
-                        <p>
+                        <h3>
                             Total Transactions
+                        </h3>
+
+                        <p className="card-number">
+                            {dashboard.totalTransactions}
                         </p>
 
-                        <h2>
-                            {dashboard.totalTransactions}
-                        </h2>
+                    </div>
+
+                </div>
+
+
+                {/* AVERAGE TRANSACTION */}
+
+                <div className="dashboard-card">
+
+                    <div className="card-icon">
+                        📈
+                    </div>
+
+                    <div>
+
+                        <h3>
+                            Average Transaction
+                        </h3>
+
+                        <p className="card-amount">
+                            Rs.{" "}
+                            {averageTransaction.toFixed(2)}
+                        </p>
 
                     </div>
 
@@ -417,19 +544,19 @@ function Dashboard() {
 
                 <div className="dashboard-card">
 
-                    <div className="dashboard-card-icon">
+                    <div className="card-icon">
                         📦
                     </div>
 
                     <div>
 
-                        <p>
+                        <h3>
                             Total Products
-                        </p>
+                        </h3>
 
-                        <h2>
+                        <p className="card-number">
                             {dashboard.totalProducts}
-                        </h2>
+                        </p>
 
                     </div>
 
@@ -440,19 +567,19 @@ function Dashboard() {
 
                 <div className="dashboard-card">
 
-                    <div className="dashboard-card-icon">
+                    <div className="card-icon">
                         ⚠️
                     </div>
 
                     <div>
 
-                        <p>
+                        <h3>
                             Low Stock Products
-                        </p>
+                        </h3>
 
-                        <h2>
+                        <p className="card-number">
                             {dashboard.lowStockProducts}
-                        </h2>
+                        </p>
 
                     </div>
 
@@ -463,11 +590,10 @@ function Dashboard() {
 
 
             {/* =========================
-                LOW STOCK PRODUCTS
+                LOW STOCK ALERT
             ========================= */}
 
             <div className="low-stock-section">
-
 
                 <div className="low-stock-header">
 
@@ -605,7 +731,6 @@ function Dashboard() {
 
             <div className="payment-summary">
 
-
                 <div className="payment-summary-header">
 
                     <h2>
@@ -669,6 +794,19 @@ function Dashboard() {
 
                     </div>
 
+                </div>
+
+
+                <div className="dashboard-payment-total">
+
+                    <strong>
+                        Total Payment Sales
+                    </strong>
+
+                    <strong>
+                        Rs.{" "}
+                        {totalPaymentSales.toFixed(2)}
+                    </strong>
 
                 </div>
 
@@ -680,7 +818,6 @@ function Dashboard() {
             ========================= */}
 
             <div className="dashboard-chart-card">
-
 
                 <div className="dashboard-chart-header">
 
@@ -699,8 +836,7 @@ function Dashboard() {
                 </div>
 
 
-                {dashboard.cashSales === 0 &&
-                dashboard.cardSales === 0 ? (
+                {totalPaymentSales === 0 ? (
 
                     <div className="empty-message">
 
@@ -763,11 +899,10 @@ function Dashboard() {
 
 
             {/* =========================
-                DAILY SALES CHART
+                DAILY SALES
             ========================= */}
 
             <div className="dashboard-chart-card">
-
 
                 <div className="dashboard-chart-header">
 
@@ -796,48 +931,67 @@ function Dashboard() {
 
                 ) : (
 
-                    <ResponsiveContainer
-                        width="100%"
-                        height={350}
-                    >
+                    <div className="daily-sales-chart">
 
-                        <LineChart
-                            data={dailySales}
-                            margin={{
-                                top: 20,
-                                right: 30,
-                                left: 20,
-                                bottom: 10
-                            }}
+                        <ResponsiveContainer
+                            width="100%"
+                            height={350}
                         >
 
-                            <CartesianGrid
-                                strokeDasharray="3 3"
-                            />
-
-                            <XAxis
-                                dataKey="date"
-                            />
-
-                            <YAxis />
-
-                            <Tooltip />
-
-                            <Legend />
-
-                            <Line
-                                type="monotone"
-                                dataKey="sales"
-                                name="Sales (Rs.)"
-                                strokeWidth={3}
-                                activeDot={{
-                                    r: 7
+                            <LineChart
+                                data={dailySales}
+                                margin={{
+                                    top: 20,
+                                    right: 30,
+                                    left: 20,
+                                    bottom: 10
                                 }}
-                            />
+                            >
 
-                        </LineChart>
+                                <CartesianGrid
+                                    strokeDasharray="3 3"
+                                />
 
-                    </ResponsiveContainer>
+                                <XAxis
+                                    dataKey="date"
+                                />
+
+                                <YAxis />
+
+                                <Tooltip
+                                    formatter={(value, name) => [
+
+                                        `Rs. ${Number(
+                                            value
+                                        ).toFixed(2)}`,
+
+                                        name === "sales"
+                                            ? "Sales"
+                                            : "Transactions"
+
+                                    ]}
+                                />
+
+                                <Legend />
+
+
+                                <Line
+                                    type="monotone"
+                                    dataKey="sales"
+                                    name="Sales (Rs.)"
+                                    stroke="#ec4899"
+                                    strokeWidth={3}
+                                    activeDot={{
+                                        r: 7
+                                    }}
+                                />
+
+
+                            </LineChart>
+
+                        </ResponsiveContainer>
+
+                    </div>
 
                 )}
 
@@ -849,7 +1003,6 @@ function Dashboard() {
             ========================= */}
 
             <div className="dashboard-chart-card">
-
 
                 <div className="dashboard-chart-header">
 
@@ -878,46 +1031,56 @@ function Dashboard() {
 
                 ) : (
 
-                    <ResponsiveContainer
-                        width="100%"
-                        height={400}
-                    >
+                    <div className="best-selling-chart">
 
-                        <BarChart
-                            data={productSales}
-                            margin={{
-                                top: 20,
-                                right: 30,
-                                left: 20,
-                                bottom: 70
-                            }}
+                        <ResponsiveContainer
+                            width="100%"
+                            height={400}
                         >
 
-                            <CartesianGrid
-                                strokeDasharray="3 3"
-                            />
+                            <BarChart
+                                data={productSales}
+                                margin={{
+                                    top: 20,
+                                    right: 30,
+                                    left: 20,
+                                    bottom: 70
+                                }}
+                            >
 
-                            <XAxis
-                                dataKey="name"
-                                angle={-35}
-                                textAnchor="end"
-                                interval={0}
-                            />
+                                <CartesianGrid
+                                    strokeDasharray="3 3"
+                                />
 
-                            <YAxis />
+                                <XAxis
+                                    dataKey="name"
+                                    angle={-35}
+                                    textAnchor="end"
+                                    interval={0}
+                                />
 
-                            <Tooltip />
+                                <YAxis />
 
-                            <Legend />
+                                <Tooltip
+                                    formatter={(value) =>
+                                        `${value} units`
+                                    }
+                                />
 
-                            <Bar
-                                dataKey="quantity"
-                                name="Quantity Sold"
-                            />
+                                <Legend />
 
-                        </BarChart>
 
-                    </ResponsiveContainer>
+                                <Bar
+                                    dataKey="quantity"
+                                    name="Quantity Sold"
+                                    fill="#ec4899"
+                                />
+
+                            </BarChart>
+
+                        </ResponsiveContainer>
+
+                    </div>
 
                 )}
 
