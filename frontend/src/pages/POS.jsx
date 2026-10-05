@@ -13,21 +13,22 @@ function POS() {
     const [amountPaid, setAmountPaid] = useState("");
     const [completedSale, setCompletedSale] = useState(null);
 
+    const [loadingProducts, setLoadingProducts] = useState(false);
+    const [checkoutLoading, setCheckoutLoading] = useState(false);
+
     // =========================
     // GET LOGGED-IN USER
     // =========================
 
     const getLoggedInUser = () => {
         try {
-            const savedUser =
-                localStorage.getItem("user");
+            const savedUser = localStorage.getItem("user");
 
             if (!savedUser) {
                 return null;
             }
 
             return JSON.parse(savedUser);
-
         } catch (error) {
             console.error(
                 "Failed to read logged-in user:",
@@ -44,15 +45,27 @@ function POS() {
 
     const fetchProducts = async () => {
         try {
+            setLoadingProducts(true);
+
             const response = await api.get("/products");
 
-            setProducts(response.data);
-
+            setProducts(
+                Array.isArray(response.data)
+                    ? response.data
+                    : []
+            );
         } catch (error) {
             console.error(
                 "Error fetching products:",
                 error
             );
+
+            alert(
+                error.response?.data?.message ||
+                    "Failed to load products."
+            );
+        } finally {
+            setLoadingProducts(false);
         }
     };
 
@@ -65,7 +78,6 @@ function POS() {
     // =========================
 
     const addToCart = () => {
-
         if (!selectedProduct) {
             alert("Please select a product");
             return;
@@ -79,77 +91,69 @@ function POS() {
             return;
         }
 
+        const requestedQuantity = Number(quantity);
+
+        if (
+            !Number.isInteger(requestedQuantity) ||
+            requestedQuantity < 1
+        ) {
+            alert("Quantity must be at least 1");
+            return;
+        }
+
         const existingItem = cart.find(
             (item) =>
                 item.product_id === product.id
         );
 
-        const currentCartQuantity =
-            existingItem
-                ? existingItem.quantity
-                : 0;
+        const currentCartQuantity = existingItem
+            ? Number(existingItem.quantity)
+            : 0;
 
-        const requestedQuantity =
-            currentCartQuantity +
-            Number(quantity);
+        const newTotalQuantity =
+            currentCartQuantity + requestedQuantity;
 
         if (
-            requestedQuantity >
+            newTotalQuantity >
             Number(product.stock_quantity)
         ) {
             alert(
                 `Not enough stock!\n\n` +
-                `Available stock: ${product.stock_quantity}\n` +
-                `Already in cart: ${currentCartQuantity}`
+                    `Available stock: ${product.stock_quantity}\n` +
+                    `Already in cart: ${currentCartQuantity}`
             );
 
             return;
         }
 
         if (existingItem) {
-
             setCart(
                 cart.map((item) =>
                     item.product_id === product.id
                         ? {
                               ...item,
-
                               quantity:
                                   item.quantity +
-                                  Number(quantity),
-
+                                  requestedQuantity,
                               subtotal:
-                                  (
-                                      item.quantity +
-                                      Number(quantity)
-                                  ) *
+                                  (item.quantity +
+                                      requestedQuantity) *
                                   Number(item.price)
                           }
                         : item
                 )
             );
-
         } else {
-
             setCart([
                 ...cart,
-
                 {
-                    product_id:
-                        product.id,
-
-                    name:
-                        product.name,
-
-                    price:
-                        Number(product.price),
-
-                    quantity:
-                        Number(quantity),
-
+                    product_id: product.id,
+                    name: product.name,
+                    price: Number(product.price),
+                    quantity: requestedQuantity,
                     subtotal:
                         Number(product.price) *
-                        Number(quantity)
+                        requestedQuantity
                 }
             ]);
         }
@@ -163,7 +167,6 @@ function POS() {
     // =========================
 
     const increaseQuantity = (productId) => {
-
         const cartItem = cart.find(
             (item) =>
                 item.product_id === productId
@@ -178,12 +181,12 @@ function POS() {
         }
 
         if (
-            cartItem.quantity >=
+            Number(cartItem.quantity) >=
             Number(product.stock_quantity)
         ) {
             alert(
                 `Cannot add more.\n\n` +
-                `Available stock: ${product.stock_quantity}`
+                    `Available stock: ${product.stock_quantity}`
             );
 
             return;
@@ -194,12 +197,10 @@ function POS() {
                 item.product_id === productId
                     ? {
                           ...item,
-
                           quantity:
-                              item.quantity + 1,
-
+                              Number(item.quantity) + 1,
                           subtotal:
-                              (item.quantity + 1) *
+                              (Number(item.quantity) + 1) *
                               Number(item.price)
                       }
                     : item
@@ -212,7 +213,6 @@ function POS() {
     // =========================
 
     const decreaseQuantity = (productId) => {
-
         const cartItem = cart.find(
             (item) =>
                 item.product_id === productId
@@ -222,7 +222,7 @@ function POS() {
             return;
         }
 
-        if (cartItem.quantity === 1) {
+        if (Number(cartItem.quantity) === 1) {
             removeFromCart(productId);
             return;
         }
@@ -232,12 +232,10 @@ function POS() {
                 item.product_id === productId
                     ? {
                           ...item,
-
                           quantity:
-                              item.quantity - 1,
-
+                              Number(item.quantity) - 1,
                           subtotal:
-                              (item.quantity - 1) *
+                              (Number(item.quantity) - 1) *
                               Number(item.price)
                       }
                     : item
@@ -250,7 +248,6 @@ function POS() {
     // =========================
 
     const removeFromCart = (productId) => {
-
         setCart(
             cart.filter(
                 (item) =>
@@ -269,29 +266,35 @@ function POS() {
         0
     );
 
+    const totalCartQuantity = cart.reduce(
+        (sum, item) =>
+            sum + Number(item.quantity),
+        0
+    );
+
     // =========================
     // CHANGE
     // =========================
 
     const change =
-        Number(amountPaid || 0) -
-        total;
+        Number(amountPaid || 0) - total;
 
     // =========================
     // CHECKOUT
     // =========================
 
     const handleCheckout = async () => {
-
         if (cart.length === 0) {
             alert("Cart is empty");
             return;
         }
 
+        if (checkoutLoading) {
+            return;
+        }
+
         if (!paymentMethod) {
-            alert(
-                "Please select a payment method"
-            );
+            alert("Please select a payment method");
             return;
         }
 
@@ -301,38 +304,35 @@ function POS() {
         ) {
             alert(
                 `Insufficient payment!\n\n` +
-                `Total: Rs. ${total.toFixed(2)}\n` +
-                `Amount Paid: Rs. ${Number(
-                    amountPaid || 0
-                ).toFixed(2)}`
+                    `Total: Rs. ${total.toFixed(2)}\n` +
+                    `Amount Paid: Rs. ${Number(
+                        amountPaid || 0
+                    ).toFixed(2)}`
             );
 
             return;
         }
 
         try {
+            setCheckoutLoading(true);
 
             const response = await api.post(
                 "/sales",
                 {
                     items: cart,
-
-                    payment_method:
-                        paymentMethod
+                    payment_method: paymentMethod
                 }
             );
 
-            // Get current logged-in cashier
             const loggedInUser =
                 getLoggedInUser();
 
-            // Create completed receipt data
             setCompletedSale({
-    saleId:
-        response.data.saleId,
+                saleId:
+                    response.data.saleId,
 
-    invoiceNumber:
-        response.data.invoiceNumber,
+                invoiceNumber:
+                    response.data.invoiceNumber,
 
                 totalAmount:
                     Number(
@@ -367,56 +367,36 @@ function POS() {
                     loggedInUser?.email ||
                     "",
 
-                items:
-                    cart.map((item) => ({
-                        name:
-                            item.name,
-
-                        quantity:
-                            item.quantity,
-
-                        price:
-                            Number(item.price),
-
-                        subtotal:
-                            Number(item.subtotal)
-                    }))
+                items: cart.map((item) => ({
+                    name: item.name,
+                    quantity: item.quantity,
+                    price: Number(item.price),
+                    subtotal: Number(item.subtotal)
+                }))
             });
 
             // Clear cart
             setCart([]);
-
             setSelectedProduct("");
-
             setQuantity(1);
-
             setAmountPaid("");
+            setProductSearch("");
 
             // Refresh stock
             await fetchProducts();
-
         } catch (error) {
-
             console.error(
                 "Checkout error:",
                 error
             );
 
-            console.log(
-                "Status:",
-                error.response?.status
-            );
-
-            console.log(
-                "Response:",
-                error.response?.data
-            );
-
             alert(
                 error.response?.data?.message ||
-                error.message ||
-                "Checkout failed"
+                    error.message ||
+                    "Checkout failed"
             );
+        } finally {
+            setCheckoutLoading(false);
         }
     };
 
@@ -426,18 +406,22 @@ function POS() {
 
     const filteredProducts =
         products.filter((product) => {
-
             const search =
-                productSearch.toLowerCase();
+                productSearch
+                    .trim()
+                    .toLowerCase();
+
+            const productName =
+                String(product.name || "")
+                    .toLowerCase();
+
+            const productSku =
+                String(product.sku || "")
+                    .toLowerCase();
 
             return (
-                product.name
-                    .toLowerCase()
-                    .includes(search) ||
-
-                product.sku
-                    .toLowerCase()
-                    .includes(search)
+                productName.includes(search) ||
+                productSku.includes(search)
             );
         });
 
@@ -446,7 +430,6 @@ function POS() {
     // =========================
 
     const selectProductFromCard = (product) => {
-
         if (
             Number(product.stock_quantity) <= 0
         ) {
@@ -464,7 +447,7 @@ function POS() {
 
         const currentCartQuantity =
             existingItem
-                ? existingItem.quantity
+                ? Number(existingItem.quantity)
                 : 0;
 
         if (
@@ -473,51 +456,41 @@ function POS() {
         ) {
             alert(
                 `Not enough stock!\n\n` +
-                `Available stock: ${product.stock_quantity}\n` +
-                `Already in cart: ${currentCartQuantity}`
+                    `Available stock: ${product.stock_quantity}\n` +
+                    `Already in cart: ${currentCartQuantity}`
             );
 
             return;
         }
 
         if (existingItem) {
-
             setCart(
                 cart.map((item) =>
                     item.product_id === product.id
                         ? {
                               ...item,
-
                               quantity:
-                                  item.quantity + 1,
-
+                                  Number(
+                                      item.quantity
+                                  ) + 1,
                               subtotal:
-                                  (item.quantity + 1) *
+                                  (Number(
+                                      item.quantity
+                                  ) + 1) *
                                   Number(item.price)
                           }
                         : item
                 )
             );
-
         } else {
-
             setCart([
                 ...cart,
-
                 {
-                    product_id:
-                        product.id,
-
-                    name:
-                        product.name,
-
-                    price:
-                        Number(product.price),
-
+                    product_id: product.id,
+                    name: product.name,
+                    price: Number(product.price),
                     quantity: 1,
-
-                    subtotal:
-                        Number(product.price)
+                    subtotal: Number(product.price)
                 }
             ]);
         }
@@ -533,7 +506,6 @@ function POS() {
             <div className="pos-header">
 
                 <div>
-
                     <h2>
                         🛒 POS Billing
                     </h2>
@@ -542,11 +514,25 @@ function POS() {
                         Select products and create
                         a customer sale.
                     </p>
-
                 </div>
 
-                <div className="pos-cart-count">
-                    🛒 {cart.length} Items
+                <div className="pos-header-actions">
+
+                    <div className="pos-cart-count">
+                        🛒 {totalCartQuantity} Items
+                    </div>
+
+                    <button
+                        type="button"
+                        className="pos-refresh-button"
+                        onClick={fetchProducts}
+                        disabled={loadingProducts}
+                    >
+                        {loadingProducts
+                            ? "⏳ Refreshing..."
+                            : "🔄 Refresh Products"}
+                    </button>
+
                 </div>
 
             </div>
@@ -573,18 +559,34 @@ function POS() {
                         Search Product
                     </label>
 
-                    <input
-                        type="text"
-                        name="productSearch"
-                        id="productSearch"
-                        placeholder="Search product or SKU..."
-                        value={productSearch}
-                        onChange={(e) =>
-                            setProductSearch(
-                                e.target.value
-                            )
-                        }
-                    />
+                    <div className="pos-search-input-wrapper">
+
+                        <input
+                            type="text"
+                            id="productSearch"
+                            name="productSearch"
+                            placeholder="Search product or SKU..."
+                            value={productSearch}
+                            onChange={(e) =>
+                                setProductSearch(
+                                    e.target.value
+                                )
+                            }
+                        />
+
+                        {productSearch && (
+                            <button
+                                type="button"
+                                className="pos-clear-search"
+                                onClick={() =>
+                                    setProductSearch("")
+                                }
+                            >
+                                ✕
+                            </button>
+                        )}
+
+                    </div>
 
                 </div>
 
@@ -592,12 +594,24 @@ function POS() {
 
                 <div className="pos-product-grid">
 
-                    {filteredProducts.length === 0 ? (
+                    {loadingProducts ? (
 
                         <div className="pos-empty-products">
 
                             <p>
-                                No products found.
+                                ⏳ Loading products...
+                            </p>
+
+                        </div>
+
+                    ) : filteredProducts.length === 0 ? (
+
+                        <div className="pos-empty-products">
+
+                            <p>
+                                {productSearch
+                                    ? "No products match your search."
+                                    : "No products found."}
                             </p>
 
                         </div>
@@ -663,6 +677,7 @@ function POS() {
                                     </p>
 
                                     <button
+                                        type="button"
                                         onClick={() =>
                                             selectProductFromCard(
                                                 product
@@ -689,8 +704,10 @@ function POS() {
                                     </button>
 
                                 </div>
+
                             )
                         )
+
                     )}
 
                 </div>
@@ -708,9 +725,7 @@ function POS() {
                         <select
                             id="selectedProduct"
                             name="selectedProduct"
-                            value={
-                                selectedProduct
-                            }
+                            value={selectedProduct}
                             onChange={(e) =>
                                 setSelectedProduct(
                                     e.target.value
@@ -748,6 +763,7 @@ function POS() {
                                             : "Out of Stock"}
                                         )
                                     </option>
+
                                 )
                             )}
 
@@ -779,6 +795,7 @@ function POS() {
                     <div className="pos-manual-button">
 
                         <button
+                            type="button"
                             onClick={addToCart}
                             className="pos-manual-add-button"
                         >
@@ -806,6 +823,7 @@ function POS() {
                     {cart.length > 0 && (
 
                         <button
+                            type="button"
                             onClick={() => {
 
                                 if (
@@ -877,6 +895,7 @@ function POS() {
                                     <div className="pos-cart-quantity">
 
                                         <button
+                                            type="button"
                                             onClick={() =>
                                                 decreaseQuantity(
                                                     item.product_id
@@ -894,6 +913,7 @@ function POS() {
                                         </span>
 
                                         <button
+                                            type="button"
                                             onClick={() =>
                                                 increaseQuantity(
                                                     item.product_id
@@ -922,6 +942,7 @@ function POS() {
                                     </div>
 
                                     <button
+                                        type="button"
                                         onClick={() =>
                                             removeFromCart(
                                                 item.product_id
@@ -933,6 +954,7 @@ function POS() {
                                     </button>
 
                                 </div>
+
                             )
                         )}
 
@@ -983,6 +1005,7 @@ function POS() {
                 <div className="pos-payment-methods">
 
                     <button
+                        type="button"
                         onClick={() =>
                             setPaymentMethod("cash")
                         }
@@ -999,9 +1022,11 @@ function POS() {
                     </button>
 
                     <button
-                        onClick={() =>
-                            setPaymentMethod("card")
-                        }
+                        type="button"
+                        onClick={() => {
+                            setPaymentMethod("card");
+                            setAmountPaid("");
+                        }}
                         disabled={
                             cart.length === 0
                         }
@@ -1072,9 +1097,11 @@ function POS() {
                                     ⚠️ Insufficient
                                     payment
                                 </p>
+
                             )}
 
                     </div>
+
                 )}
 
                 {/* CARD */}
@@ -1097,13 +1124,16 @@ function POS() {
                         </p>
 
                     </div>
+
                 )}
 
                 {/* CHECKOUT */}
 
                 <button
+                    type="button"
                     onClick={handleCheckout}
                     disabled={
+                        checkoutLoading ||
                         cart.length === 0 ||
                         (
                             paymentMethod === "cash" &&
@@ -1113,6 +1143,7 @@ function POS() {
                         )
                     }
                     className={
+                        checkoutLoading ||
                         cart.length === 0 ||
                         (
                             paymentMethod === "cash" &&
@@ -1124,7 +1155,9 @@ function POS() {
                             : "pos-checkout-button"
                     }
                 >
-                    {cart.length === 0
+                    {checkoutLoading
+                        ? "⏳ Processing Sale..."
+                        : cart.length === 0
                         ? "Cart is Empty"
                         : paymentMethod === "cash" &&
                           Number(
@@ -1219,8 +1252,6 @@ function POS() {
 
                             </div>
 
-                            {/* ACTUAL CASHIER */}
-
                             <div className="receipt-info-row">
 
                                 <span>
@@ -1236,16 +1267,18 @@ function POS() {
                             </div>
 
                             <div className="receipt-info-row">
-    <span>
-        <strong>
-            Invoice:
-        </strong>
-    </span>
 
-    <span>
-        {completedSale.invoiceNumber}
-    </span>
-</div>
+                                <span>
+                                    <strong>
+                                        Invoice:
+                                    </strong>
+                                </span>
+
+                                <span>
+                                    {completedSale.invoiceNumber}
+                                </span>
+
+                            </div>
 
                         </div>
 
@@ -1337,8 +1370,8 @@ function POS() {
 
                                 <span>
                                     {completedSale.items.reduce(
-                                        (total, item) =>
-                                            total +
+                                        (totalItems, item) =>
+                                            totalItems +
                                             Number(
                                                 item.quantity
                                             ),
@@ -1451,6 +1484,7 @@ function POS() {
                     <div className="receipt-actions">
 
                         <button
+                            type="button"
                             onClick={() =>
                                 window.print()
                             }
@@ -1460,6 +1494,7 @@ function POS() {
                         </button>
 
                         <button
+                            type="button"
                             onClick={() =>
                                 setCompletedSale(null)
                             }
@@ -1471,6 +1506,7 @@ function POS() {
                     </div>
 
                 </div>
+
             )}
 
         </div>

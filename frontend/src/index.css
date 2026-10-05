@@ -3823,3 +3823,111 @@ tr:hover {
         transform 0.2s ease,
         box-shadow 0.2s ease;
 }
+/* =========================
+   POS HEADER ACTIONS
+========================= */
+
+.pos-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.pos-cart-count {
+    font-weight: 700;
+}
+
+.pos-refresh-button {
+    background: #ec4899;
+    color: white;
+    border: none;
+    padding: 9px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: 0.2s ease;
+}
+
+.pos-refresh-button:hover {
+    background: #db2777;
+}
+
+.pos-refresh-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+
+/* =========================
+   POS SEARCH
+========================= */
+
+.pos-search-input-wrapper {
+    position: relative;
+    width: 100%;
+}
+
+.pos-search-input-wrapper input {
+    width: 100%;
+    padding-right: 45px;
+}
+
+.pos-clear-search {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+
+    width: 32px;
+    height: 32px;
+
+    padding: 0;
+
+    border-radius: 6px;
+
+    background: #fce7f3;
+    color: #be185d;
+
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.pos-clear-search:hover {
+    background: #f9a8d4;
+}
+
+
+/* =========================
+   EMPTY PRODUCT AREA
+========================= */
+
+.pos-empty-products {
+    width: 100%;
+    padding: 40px 20px;
+
+    text-align: center;
+
+    background: #fdf2f8;
+    border: 1px dashed #f9a8d4;
+    border-radius: 12px;
+
+    color: #64748b;
+}
+
+
+/* =========================
+   RESPONSIVE POS HEADER
+========================= */
+
+@media (max-width: 768px) {
+
+    .pos-header-actions {
+        width: 100%;
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .pos-refresh-button {
+        width: 100%;
+    }
+}
