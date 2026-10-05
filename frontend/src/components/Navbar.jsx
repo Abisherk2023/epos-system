@@ -1,4 +1,10 @@
 function Navbar({ setPage, user, onLogout }) {
+
+    const role = String(user?.role || "").toLowerCase();
+
+    const isAdmin = role === "admin";
+    const isCashier = role === "cashier";
+
     return (
         <nav className="navbar">
 
@@ -6,26 +12,36 @@ function Navbar({ setPage, user, onLogout }) {
                 🛒 EPOS System
             </h2>
 
-            <button
-                className="navbar-button"
-                onClick={() => setPage("dashboard")}
-            >
-                📊 Dashboard
-            </button>
+            {/* ADMIN ONLY */}
 
-            <button
-                className="navbar-button"
-                onClick={() => setPage("categories")}
-            >
-                📁 Categories
-            </button>
+            {isAdmin && (
+                <button
+                    className="navbar-button"
+                    onClick={() => setPage("dashboard")}
+                >
+                    📊 Dashboard
+                </button>
+            )}
 
-            <button
-                className="navbar-button"
-                onClick={() => setPage("products")}
-            >
-                📦 Products
-            </button>
+            {isAdmin && (
+                <button
+                    className="navbar-button"
+                    onClick={() => setPage("categories")}
+                >
+                    📁 Categories
+                </button>
+            )}
+
+            {isAdmin && (
+                <button
+                    className="navbar-button"
+                    onClick={() => setPage("products")}
+                >
+                    📦 Products
+                </button>
+            )}
+
+            {/* ADMIN + CASHIER */}
 
             <button
                 className="navbar-button"
@@ -41,26 +57,31 @@ function Navbar({ setPage, user, onLogout }) {
                 🧾 Sales History
             </button>
 
-           {user.role === "admin" && (
-    <button
-        className="navbar-button"
-        onClick={() => setPage("reports")}
-    >
-        📊 Reports
-    </button>
-)}
-            
-            {user.role === "admin" && (
-    <button
-        className="navbar-button"
-        onClick={() => setPage("users")}
-    >
-        👥 Users
-    </button>
-)}
+            {/* ADMIN ONLY */}
+
+            {isAdmin && (
+                <button
+                    className="navbar-button"
+                    onClick={() => setPage("reports")}
+                >
+                    📊 Reports
+                </button>
+            )}
+
+            {isAdmin && (
+                <button
+                    className="navbar-button"
+                    onClick={() => setPage("users")}
+                >
+                    👥 Users
+                </button>
+            )}
 
             <div className="navbar-user">
                 👤 {user.name}
+                <span className="navbar-role">
+                    {isAdmin ? "Admin" : isCashier ? "Cashier" : "User"}
+                </span>
             </div>
 
             <button

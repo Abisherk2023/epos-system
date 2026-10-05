@@ -12,33 +12,112 @@ import Users from "./pages/Users";
 import Reports from "./pages/Reports";
 
 function App() {
-
     const [user, setUser] = useState(() => {
         const savedUser = localStorage.getItem("user");
 
-        return savedUser
-            ? JSON.parse(savedUser)
-            : null;
+        try {
+            return savedUser ? JSON.parse(savedUser) : null;
+        } catch (error) {
+            console.error("Invalid saved user:", error);
+            localStorage.removeItem("user");
+            return null;
+        }
     });
 
-    const [page, setPage] = useState("dashboard");
+    const [page, setPage] = useState(() => {
+        return localStorage.getItem("currentPage") || "dashboard";
+    });
 
     const handleLogin = (loggedInUser) => {
         setUser(loggedInUser);
-        setPage("dashboard");
+
+        const role = String(loggedInUser.role || "").toLowerCase();
+
+        // Admin starts at Dashboard
+        // Cashier starts at POS
+        const defaultPage = role === "admin" ? "dashboard" : "pos";
+
+        setPage(defaultPage);
+        localStorage.setItem("currentPage", defaultPage);
+    };
+
+    const handlePageChange = (newPage) => {
+        const role = String(user?.role || "").toLowerCase();
+
+        const adminPages = [
+            "dashboard",
+            "categories",
+            "products",
+            "reports",
+            "users"
+        ];
+
+        const cashierPages = [
+            "pos",
+            "sales"
+        ];
+
+        // Admin can access all pages
+        if (role === "admin") {
+            setPage(newPage);
+            localStorage.setItem("currentPage", newPage);
+            return;
+        }
+
+        // Cashier can only access POS and Sales History
+        if (role === "cashier" && cashierPages.includes(newPage)) {
+            setPage(newPage);
+            localStorage.setItem("currentPage", newPage);
+            return;
+        }
+
+        // If unauthorized page is requested
+        if (
+            role === "cashier" &&
+            !cashierPages.includes(newPage)
+        ) {
+            setPage("pos");
+            localStorage.setItem("currentPage", "pos");
+        }
     };
 
     const handleLogout = () => {
         localStorage.removeItem("token");
         localStorage.removeItem("user");
+        localStorage.removeItem("currentPage");
 
         setUser(null);
         setPage("dashboard");
     };
 
+    // User is not logged in
     if (!user) {
+        return <Login onLogin={handleLogin} />;
+    }
+
+    const role = String(user.role || "").toLowerCase();
+
+    /*
+     * Extra protection:
+     * If a cashier somehow has "dashboard" saved
+     * as the current page, send them to POS.
+     */
+    if (
+        role === "cashier" &&
+        !["pos", "sales"].includes(page)
+    ) {
         return (
-            <Login onLogin={handleLogin} />
+            <div>
+                <Navbar
+                    setPage={handlePageChange}
+                    user={user}
+                    onLogout={handleLogout}
+                />
+
+                <div className="page-container">
+                    <POS />
+                </div>
+            </div>
         );
     }
 
@@ -46,24 +125,41 @@ function App() {
         <div>
 
             <Navbar
-                setPage={setPage}
+                setPage={handlePageChange}
                 user={user}
                 onLogout={handleLogout}
             />
 
             <div className="page-container">
 
-                {page === "dashboard" && (
-                    <Dashboard />
-                )}
+                {/* ADMIN PAGES */}
 
-                {page === "categories" && (
-                    <Categories />
-                )}
+                {page === "dashboard" &&
+                    role === "admin" && (
+                        <Dashboard />
+                    )}
 
-                {page === "products" && (
-                    <Products />
-                )}
+                {page === "categories" &&
+                    role === "admin" && (
+                        <Categories />
+                    )}
+
+                {page === "products" &&
+                    role === "admin" && (
+                        <Products />
+                    )}
+
+                {page === "reports" &&
+                    role === "admin" && (
+                        <Reports />
+                    )}
+
+                {page === "users" &&
+                    role === "admin" && (
+                        <Users />
+                    )}
+
+                {/* ADMIN + CASHIER */}
 
                 {page === "pos" && (
                     <POS />
@@ -72,11 +168,6 @@ function App() {
                 {page === "sales" && (
                     <SalesHistory />
                 )}
-
-                {page === "reports" && <Reports />}
-                
-                {page === "users" && user.role === "admin" && <Users />}
-                
 
             </div>
 

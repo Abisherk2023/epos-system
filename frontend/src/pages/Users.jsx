@@ -13,20 +13,38 @@ function Users() {
     });
 
     const [loading, setLoading] = useState(false);
+    const [usersLoading, setUsersLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
+
+    const [showPassword, setShowPassword] = useState(false);
+
     const [message, setMessage] = useState("");
     const [error, setError] = useState("");
 
-    // =========================
-    // FETCH USERS
-    // =========================
 
-    const fetchUsers = async () => {
+    /* =========================
+       FETCH USERS
+    ========================= */
+
+    const fetchUsers = async (isRefresh = false) => {
 
         try {
 
+            setError("");
+
+            if (isRefresh) {
+                setRefreshing(true);
+            } else {
+                setUsersLoading(true);
+            }
+
             const response = await api.get("/users");
 
-            setUsers(response.data);
+            setUsers(
+                Array.isArray(response.data)
+                    ? response.data
+                    : []
+            );
 
         } catch (error) {
 
@@ -37,14 +55,21 @@ function Users() {
 
             setError(
                 error.response?.data?.message ||
-                "Failed to load users"
+                "Failed to load users."
             );
+
+        } finally {
+
+            setUsersLoading(false);
+            setRefreshing(false);
+
         }
     };
 
-    // =========================
-    // LOAD USERS
-    // =========================
+
+    /* =========================
+       LOAD USERS
+    ========================= */
 
     useEffect(() => {
 
@@ -52,9 +77,10 @@ function Users() {
 
     }, []);
 
-    // =========================
-    // HANDLE INPUT
-    // =========================
+
+    /* =========================
+       HANDLE INPUT
+    ========================= */
 
     const handleChange = (e) => {
 
@@ -62,11 +88,34 @@ function Users() {
             ...formData,
             [e.target.name]: e.target.value
         });
+
+        setMessage("");
+        setError("");
+
     };
 
-    // =========================
-    // CREATE USER
-    // =========================
+
+    /* =========================
+       RESET FORM
+    ========================= */
+
+    const resetForm = () => {
+
+        setFormData({
+            name: "",
+            email: "",
+            password: "",
+            role: "cashier"
+        });
+
+        setShowPassword(false);
+
+    };
+
+
+    /* =========================
+       CREATE USER
+    ========================= */
 
     const handleSubmit = async (e) => {
 
@@ -74,24 +123,66 @@ function Users() {
 
         setMessage("");
         setError("");
+
+
+        /* =========================
+           FRONTEND VALIDATION
+        ========================= */
+
+        const name = formData.name.trim();
+        const email = formData.email.trim();
+        const password = formData.password;
+
+
+        if (!name) {
+
+            setError("Please enter the user's name.");
+
+            return;
+        }
+
+
+        if (!email) {
+
+            setError("Please enter the user's email.");
+
+            return;
+        }
+
+
+        if (password.length < 6) {
+
+            setError(
+                "Password must be at least 6 characters."
+            );
+
+            return;
+        }
+
+
         setLoading(true);
+
 
         try {
 
-            await api.post("/users", formData);
-
-            setMessage(
-                "User created successfully"
-            );
-
-            setFormData({
-                name: "",
-                email: "",
-                password: "",
-                role: "cashier"
+            await api.post("/users", {
+                name,
+                email,
+                password,
+                role: formData.role
             });
 
-            fetchUsers();
+
+            setMessage(
+                "User created successfully."
+            );
+
+
+            resetForm();
+
+
+            await fetchUsers();
+
 
         } catch (error) {
 
@@ -102,41 +193,59 @@ function Users() {
 
             setError(
                 error.response?.data?.message ||
-                "Failed to create user"
+                "Failed to create user."
             );
 
         } finally {
 
             setLoading(false);
+
         }
+
     };
 
-    // =========================
-    // DELETE USER
-    // =========================
+
+    /* =========================
+       DELETE USER
+    ========================= */
 
     const handleDelete = async (id) => {
 
-        const confirmed = window.confirm(
-            "Are you sure you want to delete this user?"
+        const user = users.find(
+            (item) => item.id === id
         );
+
+
+        const confirmed = window.confirm(
+
+            `Are you sure you want to delete ${
+                user?.name || "this user"
+            }?`
+
+        );
+
 
         if (!confirmed) {
             return;
         }
 
+
         setMessage("");
         setError("");
+
 
         try {
 
             await api.delete(`/users/${id}`);
 
+
             setMessage(
-                "User deleted successfully"
+                "User deleted successfully."
             );
 
-            fetchUsers();
+
+            await fetchUsers();
+
 
         } catch (error) {
 
@@ -147,13 +256,57 @@ function Users() {
 
             setError(
                 error.response?.data?.message ||
-                "Failed to delete user"
+                "Failed to delete user."
             );
+
         }
+
     };
 
+
+    /* =========================
+       USER STATISTICS
+    ========================= */
+
+    const adminCount = users.filter(
+        (user) =>
+            String(user.role).toLowerCase() ===
+            "admin"
+    ).length;
+
+
+    const cashierCount = users.filter(
+        (user) =>
+            String(user.role).toLowerCase() ===
+            "cashier"
+    ).length;
+
+
+    /* =========================
+       FORMAT DATE
+    ========================= */
+
+    const formatDate = (dateValue) => {
+
+        if (!dateValue) {
+            return "N/A";
+        }
+
+        const date = new Date(dateValue);
+
+        if (Number.isNaN(date.getTime())) {
+            return "N/A";
+        }
+
+        return date.toLocaleString();
+
+    };
+
+
     return (
+
         <div className="users-page">
+
 
             {/* =========================
                 HEADER
@@ -162,15 +315,42 @@ function Users() {
             <div className="users-header">
 
                 <div>
-                    <h2>👥 User Management</h2>
+
+                    <h2>
+                        👥 User Management
+                    </h2>
 
                     <p>
-                        Manage EPOS system users and their roles.
+                        Manage EPOS system users
+                        and their roles.
                     </p>
+
                 </div>
 
-                <div className="user-count">
-                    {users.length} Users
+
+                <div className="users-header-actions">
+
+                    <div className="user-count">
+
+                        {users.length} Users
+
+                    </div>
+
+
+                    <button
+                        className="refresh-users-button"
+                        onClick={() =>
+                            fetchUsers(true)
+                        }
+                        disabled={refreshing}
+                    >
+
+                        {refreshing
+                            ? "⏳ Refreshing..."
+                            : "🔄 Refresh"}
+
+                    </button>
+
                 </div>
 
             </div>
@@ -181,16 +361,104 @@ function Users() {
             ========================= */}
 
             {message && (
+
                 <div className="users-success">
+
                     ✅ {message}
+
                 </div>
+
             )}
 
+
             {error && (
+
                 <div className="users-error">
+
                     ❌ {error}
+
                 </div>
+
             )}
+
+
+            {/* =========================
+                USER STATISTICS
+            ========================= */}
+
+            <div className="user-statistics">
+
+
+                {/* TOTAL */}
+
+                <div className="user-stat-card">
+
+                    <div className="user-stat-icon">
+                        👥
+                    </div>
+
+                    <div>
+
+                        <p>
+                            Total Users
+                        </p>
+
+                        <h2>
+                            {users.length}
+                        </h2>
+
+                    </div>
+
+                </div>
+
+
+                {/* ADMIN */}
+
+                <div className="user-stat-card">
+
+                    <div className="user-stat-icon">
+                        🛡️
+                    </div>
+
+                    <div>
+
+                        <p>
+                            Administrators
+                        </p>
+
+                        <h2>
+                            {adminCount}
+                        </h2>
+
+                    </div>
+
+                </div>
+
+
+                {/* CASHIER */}
+
+                <div className="user-stat-card">
+
+                    <div className="user-stat-icon">
+                        💼
+                    </div>
+
+                    <div>
+
+                        <p>
+                            Cashiers
+                        </p>
+
+                        <h2>
+                            {cashierCount}
+                        </h2>
+
+                    </div>
+
+                </div>
+
+
+            </div>
 
 
             {/* =========================
@@ -199,17 +467,36 @@ function Users() {
 
             <div className="user-form-card">
 
-                <h3>➕ Create New User</h3>
+                <div className="user-form-header">
+
+                    <div>
+
+                        <h3>
+                            ➕ Create New User
+                        </h3>
+
+                        <p>
+                            Add an administrator or cashier
+                            to the EPOS system.
+                        </p>
+
+                    </div>
+
+                </div>
+
 
                 <form
                     className="user-form"
                     onSubmit={handleSubmit}
                 >
 
+
+                    {/* NAME */}
+
                     <div className="user-form-field">
 
                         <label htmlFor="name">
-                            Name
+                            Full Name
                         </label>
 
                         <input
@@ -218,12 +505,15 @@ function Users() {
                             type="text"
                             value={formData.name}
                             onChange={handleChange}
-                            placeholder="Enter name"
+                            placeholder="Enter full name"
+                            autoComplete="name"
                             required
                         />
 
                     </div>
 
+
+                    {/* EMAIL */}
 
                     <div className="user-form-field">
 
@@ -237,12 +527,15 @@ function Users() {
                             type="email"
                             value={formData.email}
                             onChange={handleChange}
-                            placeholder="Enter email"
+                            placeholder="Enter email address"
+                            autoComplete="email"
                             required
                         />
 
                     </div>
 
+
+                    {/* PASSWORD */}
 
                     <div className="user-form-field">
 
@@ -250,18 +543,48 @@ function Users() {
                             Password
                         </label>
 
-                        <input
-                            id="password"
-                            name="password"
-                            type="password"
-                            value={formData.password}
-                            onChange={handleChange}
-                            placeholder="Enter password"
-                            required
-                        />
+
+                        <div className="password-input-wrapper">
+
+                            <input
+                                id="password"
+                                name="password"
+                                type={
+                                    showPassword
+                                        ? "text"
+                                        : "password"
+                                }
+                                value={formData.password}
+                                onChange={handleChange}
+                                placeholder="Minimum 6 characters"
+                                autoComplete="new-password"
+                                minLength={6}
+                                required
+                            />
+
+
+                            <button
+                                type="button"
+                                className="password-toggle-button"
+                                onClick={() =>
+                                    setShowPassword(
+                                        !showPassword
+                                    )
+                                }
+                            >
+
+                                {showPassword
+                                    ? "🙈"
+                                    : "👁️"}
+
+                            </button>
+
+                        </div>
 
                     </div>
 
+
+                    {/* ROLE */}
 
                     <div className="user-form-field">
 
@@ -275,17 +598,21 @@ function Users() {
                             value={formData.role}
                             onChange={handleChange}
                         >
+
                             <option value="cashier">
-                                Cashier
+                                💼 Cashier
                             </option>
 
                             <option value="admin">
-                                Admin
+                                🛡️ Admin
                             </option>
+
                         </select>
 
                     </div>
 
+
+                    {/* BUTTONS */}
 
                     <div className="user-form-button">
 
@@ -294,10 +621,11 @@ function Users() {
                             className="create-user-button"
                             disabled={loading}
                         >
+
                             {loading
-                                ? "Creating..."
-                                : "➕ Create User"
-                            }
+                                ? "⏳ Creating..."
+                                : "➕ Create User"}
+
                         </button>
 
                     </div>
@@ -315,9 +643,18 @@ function Users() {
 
                 <div className="users-list-header">
 
-                    <h3>
-                        📋 System Users
-                    </h3>
+                    <div>
+
+                        <h3>
+                            📋 System Users
+                        </h3>
+
+                        <p>
+                            All registered EPOS users
+                        </p>
+
+                    </div>
+
 
                     <span>
                         {users.length} users
@@ -326,9 +663,21 @@ function Users() {
                 </div>
 
 
-                {users.length === 0 ? (
+                {usersLoading ? (
+
+                    <div className="loading-message">
+
+                        ⏳ Loading users...
+
+                    </div>
+
+                ) : users.length === 0 ? (
 
                     <div className="empty-state">
+
+                        <div className="empty-state-icon">
+                            👥
+                        </div>
 
                         <p>
                             No users found.
@@ -377,60 +726,92 @@ function Users() {
 
                             <tbody>
 
-                                {users.map((user) => (
+                                {users.map(
+                                    (user) => (
 
-                                    <tr key={user.id}>
+                                        <tr
+                                            key={user.id}
+                                        >
 
-                                        <td>
-                                            #{user.id}
-                                        </td>
+                                            <td>
+                                                <strong>
+                                                    #{user.id}
+                                                </strong>
+                                            </td>
 
-                                        <td>
-                                            <strong>
-                                                {user.name}
-                                            </strong>
-                                        </td>
 
-                                        <td>
-                                            {user.email}
-                                        </td>
+                                            <td>
 
-                                        <td>
+                                                <strong>
+                                                    👤{" "}
+                                                    {user.name}
+                                                </strong>
 
-                                            <span
-                                                className={
-                                                    user.role === "admin"
-                                                        ? "role-admin"
-                                                        : "role-cashier"
-                                                }
-                                            >
-                                                {user.role}
-                                            </span>
+                                            </td>
 
-                                        </td>
 
-                                        <td>
-                                            {new Date(
-                                                user.created_at
-                                            ).toLocaleString()}
-                                        </td>
+                                            <td>
+                                                {user.email}
+                                            </td>
 
-                                        <td>
 
-                                            <button
-                                                className="delete-user-button"
-                                                onClick={() =>
-                                                    handleDelete(user.id)
-                                                }
-                                            >
-                                                🗑️ Delete
-                                            </button>
+                                            <td>
 
-                                        </td>
+                                                <span
+                                                    className={
+                                                        String(
+                                                            user.role
+                                                        ).toLowerCase() ===
+                                                        "admin"
+                                                            ? "role-admin"
+                                                            : "role-cashier"
+                                                    }
+                                                >
 
-                                    </tr>
+                                                    {String(
+                                                        user.role ||
+                                                        "cashier"
+                                                    ).toLowerCase() ===
+                                                    "admin"
+                                                        ? "🛡️ Admin"
+                                                        : "💼 Cashier"}
 
-                                ))}
+                                                </span>
+
+                                            </td>
+
+
+                                            <td>
+                                                {formatDate(
+                                                    user.created_at
+                                                )}
+                                            </td>
+
+
+                                            <td>
+
+                                                <button
+                                                    className="delete-user-button"
+                                                    onClick={() =>
+                                                        handleDelete(
+                                                            user.id
+                                                        )
+                                                    }
+                                                    disabled={
+                                                        loading
+                                                    }
+                                                >
+
+                                                    🗑️ Delete
+
+                                                </button>
+
+                                            </td>
+
+                                        </tr>
+
+                                    )
+                                )}
 
                             </tbody>
 
@@ -443,7 +824,9 @@ function Users() {
             </div>
 
         </div>
+
     );
+
 }
 
 export default Users;
