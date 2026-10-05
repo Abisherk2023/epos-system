@@ -3779,3 +3779,47 @@ tr:hover {
     opacity: 0.8;
     text-transform: uppercase;
 }
+
+/* ========================================
+   ACTIVE NAVIGATION BUTTON
+======================================== */
+
+.navbar-button.active {
+    background: #be185d;
+    color: white;
+    font-weight: 700;
+    box-shadow: 0 4px 10px rgba(190, 24, 93, 0.25);
+    transform: translateY(-1px);
+}
+
+.navbar-button.active:hover {
+    background: #9d174d;
+    color: white;
+}
+
+
+/* ========================================
+   NAVBAR ROLE
+======================================== */
+
+.navbar-role {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    margin-top: 2px;
+    opacity: 0.85;
+    text-transform: uppercase;
+}
+
+
+/* ========================================
+   NAVBAR BUTTON HOVER
+======================================== */
+
+.navbar-button {
+    transition:
+        background 0.2s ease,
+        color 0.2s ease,
+        transform 0.2s ease,
+        box-shadow 0.2s ease;
+}

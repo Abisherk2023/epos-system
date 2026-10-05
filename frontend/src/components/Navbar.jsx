@@ -1,9 +1,18 @@
-function Navbar({ setPage, user, onLogout }) {
+function Navbar({ setPage, user, onLogout, currentPage }) {
 
     const role = String(user?.role || "").toLowerCase();
 
     const isAdmin = role === "admin";
-    const isCashier = role === "cashier";
+
+    const handleNavigation = (page) => {
+        setPage(page);
+    };
+
+    const isActive = (page) => {
+        return currentPage === page
+            ? "navbar-button active"
+            : "navbar-button";
+    };
 
     return (
         <nav className="navbar">
@@ -16,8 +25,8 @@ function Navbar({ setPage, user, onLogout }) {
 
             {isAdmin && (
                 <button
-                    className="navbar-button"
-                    onClick={() => setPage("dashboard")}
+                    className={isActive("dashboard")}
+                    onClick={() => handleNavigation("dashboard")}
                 >
                     📊 Dashboard
                 </button>
@@ -25,8 +34,8 @@ function Navbar({ setPage, user, onLogout }) {
 
             {isAdmin && (
                 <button
-                    className="navbar-button"
-                    onClick={() => setPage("categories")}
+                    className={isActive("categories")}
+                    onClick={() => handleNavigation("categories")}
                 >
                     📁 Categories
                 </button>
@@ -34,8 +43,8 @@ function Navbar({ setPage, user, onLogout }) {
 
             {isAdmin && (
                 <button
-                    className="navbar-button"
-                    onClick={() => setPage("products")}
+                    className={isActive("products")}
+                    onClick={() => handleNavigation("products")}
                 >
                     📦 Products
                 </button>
@@ -44,15 +53,15 @@ function Navbar({ setPage, user, onLogout }) {
             {/* ADMIN + CASHIER */}
 
             <button
-                className="navbar-button"
-                onClick={() => setPage("pos")}
+                className={isActive("pos")}
+                onClick={() => handleNavigation("pos")}
             >
                 🛒 POS Billing
             </button>
 
             <button
-                className="navbar-button"
-                onClick={() => setPage("sales")}
+                className={isActive("sales")}
+                onClick={() => handleNavigation("sales")}
             >
                 🧾 Sales History
             </button>
@@ -61,8 +70,8 @@ function Navbar({ setPage, user, onLogout }) {
 
             {isAdmin && (
                 <button
-                    className="navbar-button"
-                    onClick={() => setPage("reports")}
+                    className={isActive("reports")}
+                    onClick={() => handleNavigation("reports")}
                 >
                     📊 Reports
                 </button>
@@ -70,8 +79,8 @@ function Navbar({ setPage, user, onLogout }) {
 
             {isAdmin && (
                 <button
-                    className="navbar-button"
-                    onClick={() => setPage("users")}
+                    className={isActive("users")}
+                    onClick={() => handleNavigation("users")}
                 >
                     👥 Users
                 </button>
@@ -79,8 +88,9 @@ function Navbar({ setPage, user, onLogout }) {
 
             <div className="navbar-user">
                 👤 {user.name}
+
                 <span className="navbar-role">
-                    {isAdmin ? "Admin" : isCashier ? "Cashier" : "User"}
+                    {isAdmin ? "Admin" : "Cashier"}
                 </span>
             </div>
 

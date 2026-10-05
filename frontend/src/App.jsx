@@ -125,10 +125,11 @@ function App() {
         <div>
 
             <Navbar
-                setPage={handlePageChange}
-                user={user}
-                onLogout={handleLogout}
-            />
+    setPage={handlePageChange}
+    user={user}
+    currentPage={page}
+    onLogout={handleLogout}
+/>
 
             <div className="page-container">
 
