@@ -11,6 +11,8 @@ function POS() {
 
     const [paymentMethod, setPaymentMethod] = useState("cash");
     const [amountPaid, setAmountPaid] = useState("");
+    const [discountPercent, setDiscountPercent] = useState(0);
+
     const [completedSale, setCompletedSale] = useState(null);
 
     const [loadingProducts, setLoadingProducts] = useState(false);
@@ -280,14 +282,43 @@ function POS() {
     };
 
     // =========================
-    // TOTAL
+    // SUBTOTAL
     // =========================
 
-    const total = cart.reduce(
+    const subtotal = cart.reduce(
         (sum, item) =>
             sum + Number(item.subtotal),
         0
     );
+
+    // =========================
+    // DISCOUNT
+    // =========================
+
+    const safeDiscountPercent = Math.min(
+        100,
+        Math.max(
+            0,
+            Number(discountPercent) || 0
+        )
+    );
+
+    const discountAmount =
+        Number(
+            (
+                subtotal *
+                safeDiscountPercent /
+                100
+            ).toFixed(2)
+        );
+
+    const total =
+        Number(
+            Math.max(
+                0,
+                subtotal - discountAmount
+            ).toFixed(2)
+        );
 
     const totalCartQuantity = cart.reduce(
         (sum, item) =>
@@ -343,7 +374,12 @@ function POS() {
                 "/sales",
                 {
                     items: cart,
-                    payment_method: paymentMethod
+
+                    payment_method:
+                        paymentMethod,
+
+                    discount_percent:
+                        safeDiscountPercent
                 }
             );
 
@@ -356,6 +392,24 @@ function POS() {
 
                 invoiceNumber:
                     response.data.invoiceNumber,
+
+                subtotalAmount:
+                    Number(
+                        response.data.subtotalAmount ??
+                            subtotal
+                    ),
+
+                discountPercent:
+                    Number(
+                        response.data.discountPercent ??
+                            safeDiscountPercent
+                    ),
+
+                discountAmount:
+                    Number(
+                        response.data.discountAmount ??
+                            discountAmount
+                    ),
 
                 totalAmount:
                     Number(
@@ -404,9 +458,11 @@ function POS() {
             setQuantity(1);
             setAmountPaid("");
             setProductSearch("");
+            setDiscountPercent(0);
 
             // Refresh stock
             await fetchProducts();
+
         } catch (error) {
             console.error(
                 "Checkout error:",
@@ -519,7 +575,8 @@ function POS() {
                     name: product.name,
                     price: Number(product.price),
                     quantity: 1,
-                    subtotal: Number(product.price)
+                    subtotal:
+                        Number(product.price)
                 }
             ]);
         }
@@ -545,6 +602,7 @@ function POS() {
         if (confirmed) {
             setCart([]);
             setAmountPaid("");
+            setDiscountPercent(0);
         }
     };
 
@@ -1037,15 +1095,164 @@ function POS() {
 
                 )}
 
-                <div className="pos-total">
+                {/* =========================
+                    BILL SUMMARY
+                ========================= */}
 
-                    <span>
-                        Total
-                    </span>
+                <div className="pos-bill-summary">
 
-                    <span>
-                        Rs. {total.toFixed(2)}
-                    </span>
+                    <div className="pos-summary-row">
+
+                        <span>
+                            Subtotal
+                        </span>
+
+                        <span>
+                            Rs.{" "}
+                            {subtotal.toFixed(2)}
+                        </span>
+
+                    </div>
+
+                    <div className="pos-discount-box">
+
+                        <label htmlFor="discountPercent">
+                            🏷️ Discount
+                        </label>
+
+                        <div className="pos-discount-input-wrapper">
+
+                            <input
+                                id="discountPercent"
+                                name="discountPercent"
+                                type="number"
+                                min="0"
+                                max="100"
+                                step="1"
+                                value={discountPercent}
+                                onChange={(e) => {
+                                    const value =
+                                        e.target.value;
+
+                                    if (value === "") {
+                                        setDiscountPercent(
+                                            ""
+                                        );
+                                        return;
+                                    }
+
+                                    const numberValue =
+                                        Number(value);
+
+                                    if (
+                                        numberValue >= 0 &&
+                                        numberValue <= 100
+                                    ) {
+                                        setDiscountPercent(
+                                            numberValue
+                                        );
+                                    }
+                                }}
+                                disabled={
+                                    checkoutLoading ||
+                                    cart.length === 0
+                                }
+                                placeholder="0"
+                            />
+
+                            <span>
+                                %
+                            </span>
+
+                        </div>
+
+                        <div className="pos-discount-presets">
+
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    setDiscountPercent(0)
+                                }
+                                disabled={
+                                    checkoutLoading ||
+                                    cart.length === 0
+                                }
+                            >
+                                0%
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    setDiscountPercent(5)
+                                }
+                                disabled={
+                                    checkoutLoading ||
+                                    cart.length === 0
+                                }
+                            >
+                                5%
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    setDiscountPercent(10)
+                                }
+                                disabled={
+                                    checkoutLoading ||
+                                    cart.length === 0
+                                }
+                            >
+                                10%
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    setDiscountPercent(20)
+                                }
+                                disabled={
+                                    checkoutLoading ||
+                                    cart.length === 0
+                                }
+                            >
+                                20%
+                            </button>
+
+                        </div>
+
+                    </div>
+
+                    {safeDiscountPercent > 0 && (
+
+                        <div className="pos-summary-row pos-discount-row">
+
+                            <span>
+                                Discount (
+                                {safeDiscountPercent}%)
+                            </span>
+
+                            <span>
+                                - Rs.{" "}
+                                {discountAmount.toFixed(2)}
+                            </span>
+
+                        </div>
+
+                    )}
+
+                    <div className="pos-total">
+
+                        <span>
+                            Total
+                        </span>
+
+                        <span>
+                            Rs. {total.toFixed(2)}
+                        </span>
+
+                    </div>
 
                 </div>
 
@@ -1513,6 +1720,44 @@ function POS() {
                                 </span>
 
                             </div>
+
+                            <div className="receipt-summary-row">
+
+                                <span>
+                                    Subtotal
+                                </span>
+
+                                <span>
+                                    Rs.{" "}
+                                    {Number(
+                                        completedSale.subtotalAmount
+                                    ).toFixed(2)}
+                                </span>
+
+                            </div>
+
+                            {Number(
+                                completedSale.discountPercent
+                            ) > 0 && (
+
+                                <div className="receipt-summary-row">
+
+                                    <span>
+                                        Discount (
+                                        {
+                                            completedSale.discountPercent
+                                        }%)
+                                    </span>
+
+                                    <span>
+                                        - Rs.{" "}
+                                        {Number(
+                                            completedSale.discountAmount
+                                        ).toFixed(2)}
+                                    </span>
+
+                                </div>
+                            )}
 
                             <div className="receipt-total">
 

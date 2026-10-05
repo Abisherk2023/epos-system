@@ -4005,3 +4005,217 @@ tr:hover {
     }
 
 }
+/* =========================================
+   POS UI IMPROVEMENT - STEP 12.17
+   ========================================= */
+
+.pos-page {
+    padding-bottom: 30px;
+}
+
+.pos-layout {
+    gap: 24px;
+}
+
+.pos-products-section,
+.pos-cart-section {
+    min-width: 0;
+}
+
+.form-card,
+.cart-card,
+.payment-card {
+    border-radius: 16px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.06);
+}
+
+.page-header {
+    margin-bottom: 20px;
+}
+
+.pos-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.pos-cart-count {
+    font-weight: 600;
+}
+
+.pos-refresh-button {
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+
+.pos-refresh-button:hover {
+    transform: rotate(20deg);
+}
+/* =========================================
+   POS CART TABLE IMPROVEMENT
+   ========================================= */
+
+.cart-table-wrapper {
+    overflow-x: auto;
+    border-radius: 12px;
+}
+
+.cart-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.cart-table th {
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.cart-table td {
+    vertical-align: middle;
+}
+
+.cart-table tbody tr {
+    transition: background-color 0.2s ease;
+}
+
+.cart-table tbody tr:hover {
+    background-color: #fff5f9;
+}
+
+.quantity-controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.quantity-controls button {
+    cursor: pointer;
+    transition: transform 0.15s ease;
+}
+
+.quantity-controls button:hover {
+    transform: scale(1.08);
+}
+
+.remove-cart-button {
+    cursor: pointer;
+    transition: transform 0.15s ease;
+}
+
+.remove-cart-button:hover {
+    transform: scale(1.08);
+}
+/* =========================================
+   POS PAYMENT SECTION IMPROVEMENT
+   ========================================= */
+
+.pos-payment-section {
+    margin-top: 24px;
+}
+
+.payment-card {
+    padding: 22px;
+}
+
+.pos-price-summary {
+    margin-bottom: 18px;
+}
+
+.pos-price-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+}
+
+.pos-final-total {
+    font-size: 20px;
+    font-weight: 700;
+    padding-top: 14px;
+    margin-top: 8px;
+    border-top: 2px solid #f3d5e1;
+}
+
+.payment-method-buttons {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.payment-method-button {
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.payment-method-button:hover {
+    transform: translateY(-1px);
+}
+
+.pos-cash-box {
+    margin-top: 18px;
+    padding: 16px;
+    border-radius: 12px;
+    background: #fff7fa;
+}
+
+.quick-cash-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.quick-cash-buttons button {
+    cursor: pointer;
+    transition: transform 0.15s ease;
+}
+
+.quick-cash-buttons button:hover {
+    transform: translateY(-1px);
+}
+
+.pos-checkout-button {
+    width: 100%;
+    margin-top: 20px;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+
+.pos-checkout-button:hover {
+    transform: translateY(-1px);
+}
+/* =========================================
+   POS DISCOUNT UI IMPROVEMENT
+   ========================================= */
+
+.pos-discount-box {
+    margin-top: 16px;
+    padding: 16px;
+    border-radius: 12px;
+    background: #fff7fa;
+    border: 1px solid #f5d6e2;
+}
+
+.pos-discount-input-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.pos-discount-input-wrapper input {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.pos-discount-percent {
+    font-weight: 700;
+    min-width: 25px;
+}
+
+.pos-discount-row {
+    color: #c0266d;
+    font-weight: 600;
+}
